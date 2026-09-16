@@ -16,6 +16,7 @@ import { ShelftagCardRenderer } from './ShelftagCardRenderer';
 import { generateShelftagPdf } from '../../utils/shelftagPdfService';
 import { computeShelftagSheetLayout } from '../../utils/shelftagLayoutEngine';
 import { executeShelftagPrint } from '../../utils/shelftagPrintService';
+import { getEffectivePrintItems } from '../../utils/shelftagExpansion';
 
 interface LiveSheetPreviewTabProps {
   items: ShelfTagItem[];
@@ -33,10 +34,11 @@ export const LiveSheetPreviewTab: React.FC<LiveSheetPreviewTabProps> = ({
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showMarginGuides, setShowMarginGuides] = useState(false);
 
-  // Filter selected items
+  // Filter selected items and expand according to copy quantities
   const printItems = useMemo(() => {
-    return items.filter(item => item.isSelected !== false);
-  }, [items]);
+    const selected = items.filter(item => item.isSelected !== false);
+    return getEffectivePrintItems(selected, config.layoutOption);
+  }, [items, config.layoutOption]);
 
   // Shared Layout Calculation Engine
   const layout = useMemo(() => {

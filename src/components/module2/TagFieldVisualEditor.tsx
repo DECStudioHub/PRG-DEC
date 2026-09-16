@@ -12,12 +12,18 @@ import {
   Layers,
 } from 'lucide-react';
 import { Module2TagType, TagFieldConfig, TagFieldId, TagLayoutPreset } from '../../types';
-import { ALL_TAG_FIELDS, AVAILABLE_FONTS } from './fieldDefaults';
+import {
+  ALL_TAG_FIELDS,
+  YELLOW_TAG_FIELD_METAS,
+  WHITE_TAG_FIELD_METAS,
+  AVAILABLE_FONTS,
+} from './fieldDefaults';
 import { generateBarcodeSvgString } from '../../utils/barcode';
 import { DEFAULT_PRINCE_LOGO, PRINCE_LOGO_INLINE_SVG } from '../../utils/theme';
 
 interface TagFieldVisualEditorProps {
   tagType: Module2TagType;
+  layoutOption?: 1 | 2;
   preset: TagLayoutPreset;
   selectedFieldId: TagFieldId;
   onSelectField: (id: TagFieldId) => void;
@@ -27,6 +33,7 @@ interface TagFieldVisualEditorProps {
 
 export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
   tagType,
+  layoutOption = 1,
   preset,
   selectedFieldId,
   onSelectField,
@@ -41,7 +48,14 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isResizing, setIsResizing] = useState<string | null>(null); // 'se' | 'e' | 's'
-  const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number; initialW: number; initialH: number }>({
+  const dragStartRef = useRef<{
+    startX: number;
+    startY: number;
+    initialX: number;
+    initialY: number;
+    initialW: number;
+    initialH: number;
+  }>({
     startX: 0,
     startY: 0,
     initialX: 0,
@@ -77,6 +91,7 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
     setIsResizing(null);
 
     const f = preset.fields[fieldId];
+    if (!f) return;
     dragStartRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -88,13 +103,18 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
   };
 
-  const handlePointerDownResize = (e: React.PointerEvent, handle: 'se' | 'e' | 's', fieldId: TagFieldId) => {
+  const handlePointerDownResize = (
+    e: React.PointerEvent,
+    handle: 'se' | 'e' | 's',
+    fieldId: TagFieldId
+  ) => {
     e.stopPropagation();
     onSelectField(fieldId);
     setIsResizing(handle);
     setIsDragging(false);
 
     const f = preset.fields[fieldId];
+    if (!f) return;
     dragStartRef.current = {
       startX: e.clientX,
       startY: e.clientY,
@@ -107,96 +127,124 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging && !isResizing) return;
-    const dxMm = (e.clientX - dragStartRef.current.startX) / pxPerMm;
-    const dyMm = (e.clientY - dragStartRef.current.startY) / pxPerMm;
+    if (!activeField) return;
 
-    if (isDragging && activeField) {
-      let newX = snapMm(dragStartRef.current.initialX + dxMm);
-      let newY = snapMm(dragStartRef.current.initialY + dyMm);
+    if (isDragging) {
+      const deltaXpx = e.clientX - dragStartRef.current.startX;
+      const deltaYpx = e.clientY - dragStartRef.current.startY;
 
-      // Clamp within tag bounds
+      const deltaXmm = deltaXpx / pxPerMm;
+      const deltaYmm = deltaYpx / pxPerMm;
+
+      let newX = snapMm(dragStartRef.current.initialX + deltaXmm);
+      let newY = snapMm(dragStartRef.current.initialY + deltaYmm);
+
+      // Clamp inside tag boundaries
       newX = Math.max(0, Math.min(preset.tagWidthMm - activeField.width, newX));
       newY = Math.max(0, Math.min(preset.tagHeightMm - activeField.height, newY));
 
-      onUpdateField(selectedFieldId, { x: newX, y: newY });
-    } else if (isResizing && activeField) {
-      let newW = activeField.width;
-      let newH = activeField.height;
+      onUpdateField(selectedFieldId, {
+        x: Math.round(newX * 10) / 10,
+        y: Math.round(newY * 10) / 10,
+      });
+    } else if (isResizing) {
+      const deltaXpx = e.clientX - dragStartRef.current.startX;
+      const deltaYpx = e.clientY - dragStartRef.current.startY;
+
+      const deltaXmm = deltaXpx / pxPerMm;
+      const deltaYmm = deltaYpx / pxPerMm;
+
+      let newW = dragStartRef.current.initialW;
+      let newH = dragStartRef.current.initialH;
 
       if (isResizing === 'se' || isResizing === 'e') {
-        newW = snapMm(dragStartRef.current.initialW + dxMm);
-        newW = Math.max(5, Math.min(preset.tagWidthMm - activeField.x, newW));
+        newW = snapMm(dragStartRef.current.initialW + deltaXmm);
+        newW = Math.max(4, Math.min(preset.tagWidthMm - activeField.x, newW));
       }
       if (isResizing === 'se' || isResizing === 's') {
-        newH = snapMm(dragStartRef.current.initialH + dyMm);
+        newH = snapMm(dragStartRef.current.initialH + deltaYmm);
         newH = Math.max(3, Math.min(preset.tagHeightMm - activeField.y, newH));
       }
 
-      onUpdateField(selectedFieldId, { width: newW, height: newH });
+      onUpdateField(selectedFieldId, {
+        width: Math.round(newW * 10) / 10,
+        height: Math.round(newH * 10) / 10,
+      });
     }
   };
 
   const handlePointerUp = (e: React.PointerEvent) => {
-    if (isDragging || isResizing) {
-      try {
-        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
-      } catch {
-        // ignore
-      }
-    }
     setIsDragging(false);
     setIsResizing(null);
   };
 
-  // Keyboard Nudge (Arrow Keys)
+  // Keyboard Nudge Controls (Arrow keys = 0.5mm or 2mm with Shift)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // If user is inside an input field, do not hijack arrows
-      const activeEl = document.activeElement;
-      if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+      // Don't intercept if user is typing in an input
+      if (
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'SELECT' ||
+        document.activeElement?.tagName === 'TEXTAREA'
+      ) {
         return;
       }
 
       if (!activeField) return;
 
-      const step = e.shiftKey ? 2 : 0.5;
-      let handled = false;
+      const step = e.shiftKey ? 2.0 : 0.5;
 
-      if (e.key === 'ArrowLeft') {
-        onUpdateField(selectedFieldId, { x: Math.max(0, activeField.x - step) });
-        handled = true;
-      } else if (e.key === 'ArrowRight') {
-        onUpdateField(selectedFieldId, { x: Math.min(preset.tagWidthMm - activeField.width, activeField.x + step) });
-        handled = true;
-      } else if (e.key === 'ArrowUp') {
-        onUpdateField(selectedFieldId, { y: Math.max(0, activeField.y - step) });
-        handled = true;
-      } else if (e.key === 'ArrowDown') {
-        onUpdateField(selectedFieldId, { y: Math.min(preset.tagHeightMm - activeField.height, activeField.y + step) });
-        handled = true;
-      }
-
-      if (handled) {
-        e.preventDefault();
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          onUpdateField(selectedFieldId, {
+            x: Math.max(0, Math.round((activeField.x - step) * 10) / 10),
+          });
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          onUpdateField(selectedFieldId, {
+            x: Math.min(
+              preset.tagWidthMm - activeField.width,
+              Math.round((activeField.x + step) * 10) / 10
+            ),
+          });
+          break;
+        case 'ArrowUp':
+          e.preventDefault();
+          onUpdateField(selectedFieldId, {
+            y: Math.max(0, Math.round((activeField.y - step) * 10) / 10),
+          });
+          break;
+        case 'ArrowDown':
+          e.preventDefault();
+          onUpdateField(selectedFieldId, {
+            y: Math.min(
+              preset.tagHeightMm - activeField.height,
+              Math.round((activeField.y + step) * 10) / 10
+            ),
+          });
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedFieldId, activeField, preset.tagWidthMm, preset.tagHeightMm, onUpdateField]);
+  }, [activeField, selectedFieldId, preset.tagWidthMm, preset.tagHeightMm, onUpdateField]);
 
-  // Sample Barcode SVG for visual preview
+  // Generate Barcode SVG for White Tag
   const sampleBarcodeSvg = useMemo(() => {
     const f = preset.fields.barcode;
     if (!f) return '';
-    const hPx = Math.max(16, Math.round(f.height * pxPerMm * 0.7));
     return generateBarcodeSvgString(
-      '123456789012',
+      '480001600123',
       f.barcodeFormat || 'CODE128',
-      hPx,
+      Math.max(14, Math.round(f.height * pxPerMm * 0.7)),
       f.showBarcodeText !== false,
-      Math.max(8, Math.round(f.barcodeTextSizePt ? f.barcodeTextSizePt * (pxPerMm / BASE_PX_PER_MM) : 9))
+      Math.max(
+        8,
+        Math.round(f.barcodeTextSizePt ? f.barcodeTextSizePt * (pxPerMm / BASE_PX_PER_MM) : 9)
+      )
     );
   }, [preset.fields.barcode, pxPerMm, BASE_PX_PER_MM]);
 
@@ -251,6 +299,7 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
 
   const isYellow = tagType === 'pp_tag';
   const tagBg = isYellow ? '#FEED01' : '#ffffff';
+  const activeFieldsList = isYellow ? YELLOW_TAG_FIELD_METAS : WHITE_TAG_FIELD_METAS;
 
   return (
     <div className="flex flex-col h-full bg-zinc-100/90 rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
@@ -264,7 +313,7 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
             }`}
           >
             <span>{isYellow ? '🟡' : '⚪'}</span>
-            <span>{isYellow ? 'PP Tag Layout' : 'ShelfTag Layout'}</span>
+            <span>{isYellow ? 'Yellow PP Tag Layout' : 'White ShelfTag Layout'}</span>
           </span>
 
           <span className="text-zinc-500 font-mono text-[11px] font-bold">
@@ -289,18 +338,18 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
             <button
               type="button"
               onClick={() => setZoom(prev => Math.max(0.75, Math.round((prev - 0.25) * 100) / 100))}
-              className="p-1 hover:bg-white rounded text-zinc-700 transition cursor-pointer"
+              className="p-1 hover:bg-white rounded text-zinc-700 cursor-pointer"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
-            <span className="px-2 font-mono text-[10.5px] font-bold text-zinc-700 min-w-[42px] text-center">
+            <span className="px-2 font-mono text-[11px] font-bold text-zinc-800">
               {Math.round(zoom * 100)}%
             </span>
             <button
               type="button"
-              onClick={() => setZoom(prev => Math.min(3, Math.round((prev + 0.25) * 100) / 100))}
-              className="p-1 hover:bg-white rounded text-zinc-700 transition cursor-pointer"
+              onClick={() => setZoom(prev => Math.min(3.0, Math.round((prev + 0.25) * 100) / 100))}
+              className="p-1 hover:bg-white rounded text-zinc-700 cursor-pointer"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
@@ -308,10 +357,10 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
             <button
               type="button"
               onClick={() => setZoom(1.6)}
-              className="px-1.5 py-0.5 text-[9.5px] font-bold hover:bg-white rounded text-zinc-600 ml-0.5 transition cursor-pointer"
+              className="p-1 hover:bg-white rounded text-zinc-500 hover:text-zinc-800 cursor-pointer ml-0.5"
               title="Reset Zoom to 160%"
             >
-              Fit
+              <Maximize2 className="w-3.5 h-3.5" />
             </button>
           </div>
 
@@ -320,9 +369,11 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
             type="button"
             onClick={() => setShowGrid(!showGrid)}
             className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1 text-[11px] font-semibold ${
-              showGrid ? 'bg-amber-100/70 border-amber-300 text-amber-900' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+              showGrid
+                ? 'bg-zinc-900 border-zinc-900 text-white'
+                : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
             }`}
-            title="Toggle Visual Grid"
+            title="Toggle Ruler Grid"
           >
             <Grid className="w-3.5 h-3.5" />
             <span className="hidden md:inline">Grid</span>
@@ -333,7 +384,9 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
             type="button"
             onClick={() => setSnapToGrid(!snapToGrid)}
             className={`p-1.5 rounded-lg border transition cursor-pointer flex items-center gap-1 text-[11px] font-semibold ${
-              snapToGrid ? 'bg-amber-100/70 border-amber-300 text-amber-900' : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+              snapToGrid
+                ? 'bg-amber-100/70 border-amber-300 text-amber-900'
+                : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
             }`}
             title="Toggle Snap to Grid (1mm)"
           >
@@ -413,76 +466,102 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
               </>
             )}
 
-            {/* RENDER ALL FIELDS AS INTERACTIVE BOUNDING BOXES */}
-            {ALL_TAG_FIELDS.map(meta => {
-              const field = preset.fields[meta.id];
-              if (!field) return null;
-              const isSelected = selectedFieldId === meta.id;
-
-              const leftPx = field.x * pxPerMm;
-              const topPx = field.y * pxPerMm;
-              const widthPx = field.width * pxPerMm;
-              const heightPx = field.height * pxPerMm;
-
-              // Hide if not visible and not selected
-              if (!field.visible && !isSelected) {
-                return null;
+            {/* Render Each Field Box */}
+            {activeFieldsList.map(meta => {
+              let field = preset.fields[meta.id];
+              if (!field) {
+                if (meta.id === 'price') field = preset.fields.regularPrice;
+                else if (meta.id === 'upc') field = preset.fields.barcode;
+                else if (meta.id === 'date') field = preset.fields.tagDate;
+                else if (meta.id === 'buy' || meta.id === 'uom') field = preset.fields.buyPerAndUp;
+                else if (meta.id === 'per') field = preset.fields.priceUnit;
               }
+
+              if (!field) return null;
+
+              const isSelected = selectedFieldId === meta.id;
+              const isVisible = field.visible !== false;
+
+              const fXpx = field.x * pxPerMm;
+              const fYpx = field.y * pxPerMm;
+              const fWpx = field.width * pxPerMm;
+              const fHpx = field.height * pxPerMm;
+
+              const fontPx = Math.max(
+                6,
+                Math.round(field.fontSizePt * 1.333 * (pxPerMm / BASE_PX_PER_MM))
+              );
 
               return (
                 <div
                   key={meta.id}
+                  id={`canvas-field-${meta.id}`}
                   onPointerDown={e => handlePointerDownField(e, meta.id)}
-                  className={`absolute transition-shadow group select-none cursor-move ${
-                    !field.visible ? 'opacity-40 border-dashed' : ''
+                  className={`absolute group cursor-move transition-all ${
+                    !isVisible ? 'opacity-20 pointer-events-none' : ''
                   }`}
                   style={{
-                    left: `${leftPx}px`,
-                    top: `${topPx}px`,
-                    width: `${widthPx}px`,
-                    height: `${heightPx}px`,
-                    zIndex: isSelected ? 40 : meta.id === 'promoHeader' ? 5 : 10,
-                    boxSizing: 'border-box',
-                    paddingTop: `${field.paddingTopMm * pxPerMm}px`,
-                    paddingBottom: `${field.paddingBottomMm * pxPerMm}px`,
-                    paddingLeft: `${field.paddingLeftMm * pxPerMm}px`,
-                    paddingRight: `${field.paddingRightMm * pxPerMm}px`,
-                    backgroundColor: field.backgroundColor || (meta.id === 'promoHeader' ? '#E31B23' : undefined),
-                    border: isSelected
-                      ? '2px solid #2563eb'
-                      : field.borderStyle && field.borderStyle !== 'none'
-                      ? `${field.borderWidthPx || 1}px ${field.borderStyle} ${field.borderColor || '#000'}`
-                      : '1px dashed rgba(161, 161, 170, 0.4)',
-                    borderRadius: field.borderRadiusMm ? `${field.borderRadiusMm * pxPerMm}px` : undefined,
+                    left: `${fXpx}px`,
+                    top: `${fYpx}px`,
+                    width: `${fWpx}px`,
+                    height: `${fHpx}px`,
+                    zIndex: isSelected ? 40 : 10,
                   }}
                 >
-                  {/* Selected Field Label Tag Badge */}
-                  {isSelected && (
-                    <div className="absolute -top-5 left-0 bg-blue-600 text-white font-mono text-[9px] font-bold px-1.5 py-0.2 rounded-t shadow flex items-center gap-1 z-50 pointer-events-none whitespace-nowrap">
-                      <span>{field.name}</span>
-                      <span className="opacity-75">
-                        {field.width}×{field.height}mm
-                      </span>
+                  {/* Outer Field Selection Border */}
+                  <div
+                    className={`absolute inset-0 rounded-xs transition-all pointer-events-none ${
+                      isSelected
+                        ? 'ring-2 ring-blue-600 ring-offset-1 ring-offset-white/80 bg-blue-500/10'
+                        : 'border border-dashed border-zinc-400/60 group-hover:border-blue-400 group-hover:bg-blue-500/5'
+                    }`}
+                  />
+
+                  {/* Field Label Badge when Hovered or Selected */}
+                  {(isSelected || snapToGrid) && (
+                    <div
+                      className={`absolute -top-4 left-0 px-1 py-0.2 text-[8px] font-mono font-bold rounded-xs pointer-events-none whitespace-nowrap shadow-2xs z-50 ${
+                        isSelected ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-200'
+                      }`}
+                    >
+                      {field.name || meta.label}
                     </div>
                   )}
 
-                  {/* Field Content Simulation */}
+                  {/* Resizing Handles */}
+                  {isSelected && (
+                    <>
+                      <div
+                        onPointerDown={e => handlePointerDownResize(e, 'e', meta.id)}
+                        className="absolute right-[-4px] top-1/2 -translate-y-1/2 w-2 h-4 bg-blue-600 rounded-full cursor-ew-resize z-50 shadow-xs"
+                      />
+                      <div
+                        onPointerDown={e => handlePointerDownResize(e, 's', meta.id)}
+                        className="absolute bottom-[-4px] left-1/2 -translate-x-1/2 w-4 h-2 bg-blue-600 rounded-full cursor-ns-resize z-50 shadow-xs"
+                      />
+                      <div
+                        onPointerDown={e => handlePointerDownResize(e, 'se', meta.id)}
+                        className="absolute right-[-4px] bottom-[-4px] w-3 h-3 bg-blue-600 rounded-full cursor-nwse-resize z-50 shadow-xs ring-2 ring-white"
+                      />
+                    </>
+                  )}
+
+                  {/* Content Preview Container */}
                   <div
-                    className="w-full h-full overflow-hidden flex flex-col pointer-events-none"
+                    className="w-full h-full overflow-hidden flex flex-col pointer-events-none select-none"
                     style={{
                       fontFamily: field.fontFamily || 'Arial',
-                      fontSize: `${Math.max(7, field.fontSizePt * (pxPerMm / BASE_PX_PER_MM))}px`,
-                      fontWeight: field.fontWeight === 'bold' ? 800 : field.fontWeight === 'medium' ? 600 : 400,
+                      fontSize: `${fontPx}px`,
+                      fontWeight: field.fontWeight === 'bold' ? 800 : 400,
                       fontStyle: field.fontStyle || 'normal',
-                      textDecoration: field.textDecoration || 'none',
-                      color: field.textColor || (isYellow ? '#000000' : '#18181b'),
+                      color: field.textColor || '#000000',
                       textAlign: field.textAlign || 'left',
                       justifyContent:
-                        field.verticalAlign === 'top'
-                          ? 'flex-start'
+                        field.verticalAlign === 'middle'
+                          ? 'center'
                           : field.verticalAlign === 'bottom'
                           ? 'flex-end'
-                          : 'center',
+                          : 'flex-start',
                       alignItems:
                         field.textAlign === 'left'
                           ? 'flex-start'
@@ -490,38 +569,95 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
                           ? 'flex-end'
                           : 'center',
                       textTransform: field.textTransform === 'none' ? undefined : field.textTransform,
-                      lineHeight: field.lineHeightPt ? `${field.lineHeightPt * (pxPerMm / BASE_PX_PER_MM)}px` : 1.15,
+                      lineHeight: 1.15,
                     }}
                   >
+                    {/* DESCRIPTION */}
                     {meta.id === 'description' && (
-                      <div className={field.textWrap ? `line-clamp-${field.maxLines || 2}` : 'truncate w-full'}>
-                        SAN MIGUEL PALE PILSEN 330ML CAN
-                      </div>
-                    )}
-
-                    {meta.id === 'sku' && (
-                      <div className="truncate w-full">
-                        {field.prefixText || 'SKU: '}480001600123
-                      </div>
-                    )}
-
-                    {meta.id === 'locator' && (
                       <div
                         className={
-                          field.locatorBadge
-                            ? isYellow
-                              ? 'bg-black text-white px-1.5 py-0.2 rounded-xs font-mono font-bold'
-                              : 'border border-black font-mono font-bold px-1 rounded-xs'
-                            : 'font-mono font-bold'
+                          field.textWrap ? `line-clamp-${field.maxLines || 2}` : 'truncate w-full'
                         }
                       >
-                        A02-04-12
+                        {isYellow
+                          ? 'ROLD HVN HBMONO MSLPRA STD 11'
+                          : 'SAN MIGUEL PALE PILSEN 330ML CAN'}
                       </div>
                     )}
 
-                    {meta.id === 'barcode' && (
+                    {/* YELLOW UPC (Bold numbers, strictly NO barcode lines) */}
+                    {meta.id === 'upc' && isYellow && (
+                      <div className="font-mono font-black tracking-wider text-right w-full truncate leading-none">
+                        396758268186
+                      </div>
+                    )}
+
+                    {/* YELLOW BUY */}
+                    {meta.id === 'buy' && isYellow && (
+                      <div className="font-black text-left w-full leading-none">BUY</div>
+                    )}
+
+                    {/* YELLOW QTY */}
+                    {meta.id === 'qty' && isYellow && (
+                      <div className="font-black text-left w-full leading-none">3</div>
+                    )}
+
+                    {/* YELLOW UOM */}
+                    {meta.id === 'uom' && isYellow && (
+                      <div className="font-black text-left w-full leading-none uppercase">
+                        PCS AND UP
+                      </div>
+                    )}
+
+                    {/* YELLOW & WHITE PRICE (Fixed aligned Piso sign) */}
+                    {meta.id === 'price' && (
+                      <div className="flex items-baseline leading-none whitespace-nowrap">
+                        {field.showCurrencySymbol && (
+                          <span
+                            className="font-black select-none mr-0.5 leading-none"
+                            style={{
+                              fontSize: `${Math.max(8, Math.round(fontPx * 0.72))}px`,
+                              lineHeight: 1,
+                            }}
+                          >
+                            {field.currencySymbol || '₱'}
+                          </span>
+                        )}
+                        <span
+                          className="leading-none whitespace-nowrap font-black"
+                          style={{ lineHeight: 1 }}
+                        >
+                          {isYellow ? '64.00' : '69.00'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* YELLOW PER */}
+                    {meta.id === 'per' && isYellow && (
+                      <div className="font-black text-left w-full leading-none uppercase">/PC</div>
+                    )}
+
+                    {/* WHITE DATE */}
+                    {meta.id === 'date' && !isYellow && (
+                      <div className="truncate w-full font-bold select-none text-right">
+                        2/14/26
+                      </div>
+                    )}
+
+                    {/* WHITE LOGO */}
+                    {meta.id === 'logo' && !isYellow && (
+                      <div className="w-full h-full flex items-center justify-start overflow-hidden">
+                        <div
+                          className="max-h-full max-w-full object-contain"
+                          dangerouslySetInnerHTML={{ __html: PRINCE_LOGO_INLINE_SVG }}
+                        />
+                      </div>
+                    )}
+
+                    {/* WHITE BARCODE */}
+                    {meta.id === 'barcode' && !isYellow && (
                       <div
-                        className="w-full h-full flex flex-col justify-end overflow-hidden"
+                        className="w-full h-full flex flex-col justify-center overflow-hidden"
                         style={{
                           alignItems:
                             field.barcodeAlign === 'center'
@@ -538,134 +674,16 @@ export const TagFieldVisualEditor: React.FC<TagFieldVisualEditorProps> = ({
                       </div>
                     )}
 
-                    {meta.id === 'regularPrice' && (
-                      <div className="flex flex-col items-end leading-none">
-                        {field.prefixText && (
-                          <span
-                            className="uppercase font-bold tracking-wider opacity-70 mb-0.5"
-                            style={{ fontSize: `${Math.max(6, (field.fontSizePt * 0.55) * (pxPerMm / BASE_PX_PER_MM))}px` }}
-                          >
-                            {field.prefixText}
-                          </span>
-                        )}
-                        <span className={field.strikeThrough ? 'line-through' : ''}>
-                          {field.showCurrencySymbol !== false ? (field.currencySymbol || '₱') + ' ' : ''}
-                          199.00
-                        </span>
-                      </div>
-                    )}
-
-                    {meta.id === 'promoPrice' && (
-                      <div className="flex flex-col items-end leading-none">
-                        {field.prefixText && (
-                          <span
-                            className="uppercase font-bold tracking-wider opacity-70 mb-0.5"
-                            style={{ fontSize: `${Math.max(6, (field.fontSizePt * 0.55) * (pxPerMm / BASE_PX_PER_MM))}px` }}
-                          >
-                            {field.prefixText}
-                          </span>
-                        )}
-                        <span>
-                          {field.showCurrencySymbol !== false ? (field.currencySymbol || '₱') + ' ' : ''}
-                          179.00
-                        </span>
-                      </div>
-                    )}
-
-                    {meta.id === 'priceUnit' && (
-                      <div className="truncate w-full font-bold uppercase tracking-wider">
-                        PER CAN
-                      </div>
-                    )}
-
-                    {meta.id === 'promoHeader' && (
-                      <div className="text-white font-black tracking-tight uppercase flex items-center justify-between w-full px-1">
-                        <span>{preset.promoHeader || 'SPECIAL BUY'}</span>
-                        <span className="text-[9px] opacity-90">PROMO TAG</span>
-                      </div>
-                    )}
-
-                    {meta.id === 'logo' && (
-                      <img
-                        src={DEFAULT_PRINCE_LOGO}
-                        alt="Logo"
-                        className="object-contain max-h-full max-w-full"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          if (target.src !== PRINCE_LOGO_INLINE_SVG) {
-                            target.src = PRINCE_LOGO_INLINE_SVG;
-                          }
-                        }}
-                      />
+                    {/* WHITE SKU */}
+                    {meta.id === 'sku' && !isYellow && (
+                      <div className="truncate w-full font-mono font-bold uppercase">100452</div>
                     )}
                   </div>
-
-                  {/* Resize Handles (When Field is Selected) */}
-                  {isSelected && (
-                    <>
-                      {/* South-East (Bottom-Right) Corner Handle */}
-                      <div
-                        onPointerDown={e => handlePointerDownResize(e, 'se', meta.id)}
-                        className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-blue-600 border-2 border-white rounded-full cursor-se-resize shadow z-50 hover:scale-125 transition-transform"
-                        title="Resize Width & Height"
-                      />
-                      {/* East (Right Edge) Handle */}
-                      <div
-                        onPointerDown={e => handlePointerDownResize(e, 'e', meta.id)}
-                        className="absolute top-1/2 -right-1 w-2 h-4 -translate-y-1/2 bg-blue-600 border border-white rounded-sm cursor-e-resize shadow z-50 hover:scale-125 transition-transform"
-                        title="Resize Width"
-                      />
-                      {/* South (Bottom Edge) Handle */}
-                      <div
-                        onPointerDown={e => handlePointerDownResize(e, 's', meta.id)}
-                        className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-4 h-2 bg-blue-600 border border-white rounded-sm cursor-s-resize shadow z-50 hover:scale-125 transition-transform"
-                        title="Resize Height"
-                      />
-                    </>
-                  )}
                 </div>
               );
             })}
           </div>
         </div>
-      </div>
-
-      {/* Bottom Status / Instructions Bar */}
-      <div className="bg-white px-4 py-2 border-t border-zinc-200 flex flex-wrap items-center justify-between text-[11px] text-zinc-500 gap-2">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="inline-flex items-center gap-1">
-            <Move className="w-3.5 h-3.5 text-zinc-400" />
-            <span>Click & Drag to reposition</span>
-          </span>
-          <span className="hidden sm:inline-flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-blue-600" />
-            <span>Drag blue handle to resize</span>
-          </span>
-          <span className="hidden md:inline-flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-zinc-100 border border-zinc-300 rounded text-[9.5px] font-mono">
-              ↑↓←→
-            </kbd>
-            <span>Nudge 0.5mm</span>
-          </span>
-          <span className="hidden lg:inline-flex items-center gap-1">
-            <kbd className="px-1 py-0.5 bg-zinc-100 border border-zinc-300 rounded text-[9.5px] font-mono">
-              Shift + Arrows
-            </kbd>
-            <span>Nudge 2mm</span>
-          </span>
-        </div>
-
-        {activeField && (
-          <button
-            type="button"
-            onClick={() => onResetField(selectedFieldId)}
-            className="inline-flex items-center gap-1 text-zinc-600 hover:text-amber-700 font-semibold cursor-pointer transition"
-          >
-            <RotateCcw className="w-3 h-3" />
-            <span>Reset {activeField.name} to Default</span>
-          </button>
-        )}
       </div>
     </div>
   );

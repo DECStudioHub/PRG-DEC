@@ -91,6 +91,9 @@ export function executeShelftagPrint(
       page-break-after: auto;
       break-after: auto;
     }
+    .barcode-container svg {
+      max-width: 100% !important;
+    }
   </style>
 </head>
 <body>

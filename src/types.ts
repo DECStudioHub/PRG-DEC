@@ -114,7 +114,43 @@ export interface ShelfTagItem {
   category?: string;
   isSelected?: boolean;
   copies?: number;
+  buyPerAndUp?: string;
+  buyPer?: string | number;
+  up?: string | number;
+  tagDate?: string;
 }
+
+/**
+ * Clean Separate Data Model for Module 2 Yellow Tag (Layout 2 reference)
+ */
+export interface YellowTagItem {
+  id: string;
+  upc: string;
+  description: string;
+  qty: number;
+  price: number;
+  copies: number;
+  buy?: string; // system default: "BUY"
+  uom?: string; // system default: "PCS AND UP"
+  per?: string; // system default: "/PC"
+  isSelected?: boolean;
+}
+
+/**
+ * Clean Separate Data Model for Module 2 White Tag (Layout 2 reference)
+ */
+export interface WhiteTagItem {
+  id: string;
+  upc: string;
+  description: string;
+  price: number;
+  sku: string;
+  date: string;
+  copies: number;
+  isSelected?: boolean;
+}
+
+export type Module2ActiveTagType = 'yellow' | 'white';
 
 export type Module2PresetId = 'standard' | 'compact' | 'medium' | 'large' | string;
 
@@ -123,15 +159,27 @@ export type YellowPaletteId = 'golden' | 'canary' | 'amber' | 'lemon';
 export type Module2TagType = 'shelftag' | 'pp_tag';
 
 export type TagFieldId =
+  // Yellow Tag visual fields
+  | 'upc'
   | 'description'
-  | 'sku'
+  | 'buy'
+  | 'qty'
+  | 'uom'
+  | 'price'
+  | 'per'
+  // White Tag visual fields
   | 'barcode'
+  | 'sku'
+  | 'date'
+  | 'logo'
+  // Legacy field identifiers for backwards compatibility
   | 'regularPrice'
   | 'promoPrice'
   | 'priceUnit'
   | 'locator'
   | 'promoHeader'
-  | 'logo';
+  | 'buyPerAndUp'
+  | 'tagDate';
 
 export type TextTransformMode = 'none' | 'uppercase' | 'lowercase' | 'capitalize';
 
@@ -178,6 +226,7 @@ export interface TagFieldConfig {
 
   // Specialized Settings
   barcodeFormat?: BarcodeType;
+  showBarcodeLines?: boolean;
   showBarcodeText?: boolean;
   barcodeTextSizePt?: number;
   barcodeAlign?: 'left' | 'center' | 'right';
@@ -220,16 +269,19 @@ export interface TagLayoutPreset {
   showCutGuides: boolean;
   showLogo: boolean;
   promoHeader?: string;
+  layoutOption?: 1 | 2;
 
   // Individual Field Configurations
-  fields: Record<TagFieldId, TagFieldConfig>;
+  fields: Record<string, TagFieldConfig>;
 }
 
 export interface Module2Config {
+  layoutOption?: 1 | 2; // 1 = Standard / Existing, 2 = Reference Layout
   presetId: Module2PresetId;
   tagWidthMm: number;
   tagHeightMm: number;
   columns: number;
+  rows?: number;
   paperSize: PaperSize;
   orientation?: 'portrait' | 'landscape';
   customWidthMm: number;

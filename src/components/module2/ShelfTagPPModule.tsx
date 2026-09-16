@@ -9,18 +9,44 @@ import {
   Loader2,
   Maximize2,
   Palette,
+  FileSpreadsheet,
+  CheckCircle2,
 } from 'lucide-react';
-import { InventoryItem, InventorySession, Module2Config, ShelfTagItem } from '../../types';
-import { DEFAULT_MODULE2_CONFIG, SAMPLE_SHELF_TAGS } from './constants';
-import { ShelfTagItemsTab } from './ShelfTagItemsTab';
+import {
+  InventoryItem,
+  InventorySession,
+  Module2Config,
+  Module2TagType,
+  ShelfTagItem,
+  YellowTagItem,
+  WhiteTagItem,
+} from '../../types';
+import {
+  DEFAULT_MODULE2_CONFIG,
+  SAMPLE_SHELF_TAGS,
+  SAMPLE_LAYOUT2_TAGS,
+} from './constants';
+import {
+  SAMPLE_YELLOW_TAGS,
+  SAMPLE_WHITE_TAGS,
+} from '../../utils/module2ExcelService';
+import {
+  DEFAULT_YELLOW_TAG_PRESET,
+  DEFAULT_WHITE_TAG_PRESET,
+  DEFAULT_SHELFTAG_PRESETS,
+  DEFAULT_PPTAG_PRESETS,
+  loadPresetsFromStorage,
+} from './fieldDefaults';
+import { YellowTagImportTable } from './YellowTagImportTable';
+import { WhiteTagImportTable } from './WhiteTagImportTable';
+import { TagFieldLayoutEditorTab } from './TagFieldLayoutEditorTab';
 import { LayoutColorSetupTab } from './LayoutColorSetupTab';
 import { LiveSheetPreviewTab } from './LiveSheetPreviewTab';
-import { TagFieldLayoutEditorTab } from './TagFieldLayoutEditorTab';
 import { ShelftagCardRenderer } from './ShelftagCardRenderer';
 import { generateShelftagPdf } from '../../utils/shelftagPdfService';
 import { computeShelftagSheetLayout } from '../../utils/shelftagLayoutEngine';
 import { executeShelftagPrint } from '../../utils/shelftagPrintService';
-import { DEFAULT_SHELFTAG_PRESETS, DEFAULT_PPTAG_PRESETS, loadPresetsFromStorage } from './fieldDefaults';
+import { formatBuyPerAndUp, getEffectivePrintItems, getTotalPhysicalCopies } from '../../utils/shelftagExpansion';
 
 interface ShelfTagPPModuleProps {
   items: InventoryItem[];
@@ -37,78 +63,145 @@ export const ShelfTagPPModule: React.FC<ShelfTagPPModuleProps> = ({
   onLoadSampleData: _onLoadSampleData,
   onSwitchToImport: _onSwitchToImport,
 }) => {
-  // Tabs: 'items' | 'field_editor' | 'layout' | 'preview'
+  // Navigation Tabs: 'items' | 'field_editor' | 'layout' | 'preview'
   const [activeTab, setActiveTab] = useState<'items' | 'field_editor' | 'layout' | 'preview'>('items');
 
-  // Shelf Tag Items state (initialized with sample items)
-  const [shelfTagItems, setShelfTagItems] = useState<ShelfTagItem[]>(SAMPLE_SHELF_TAGS);
+  // Active Tag Mode: 'pp_tag' (Yellow Tag) vs 'shelftag' (White Tag)
+  const [activeTagType, setActiveTagType] = useState<Module2TagType>('pp_tag');
 
-  // Configuration state with initialized preset lists
-  const [config, setConfig] = useState<Module2Config>(() => {
-    const shelftagPresets = loadPresetsFromStorage('shelftag', DEFAULT_SHELFTAG_PRESETS);
-    const ppTagPresets = loadPresetsFromStorage('pp_tag', DEFAULT_PPTAG_PRESETS);
+  // Dedicated data collections for Yellow Tag and White Tag
+  const [yellowItems, setYellowItems] = useState<YellowTagItem[]>(SAMPLE_YELLOW_TAGS);
+  const [whiteItems, setWhiteItems] = useState<WhiteTagItem[]>(SAMPLE_WHITE_TAGS);
 
-    return {
-      ...DEFAULT_MODULE2_CONFIG,
-      activeTagType: 'shelftag',
-      shelftagPresets,
-      ppTagPresets,
-      shelftagConfig: shelftagPresets[0],
-      ppTagConfig: ppTagPresets[0],
-    };
-  });
+  // Dedicated config for Yellow Tag (85x38mm, 7 fields, yellow palette)
+  const [yellowConfig, setYellowConfig] = useState<Module2Config>(() => ({
+    ...DEFAULT_MODULE2_CONFIG,
+    activeTagType: 'pp_tag',
+    tagWidthMm: DEFAULT_YELLOW_TAG_PRESET.tagWidthMm,
+    tagHeightMm: DEFAULT_YELLOW_TAG_PRESET.tagHeightMm,
+    columns: DEFAULT_YELLOW_TAG_PRESET.columns,
+    rowGapMm: DEFAULT_YELLOW_TAG_PRESET.rowGapMm,
+    colGapMm: DEFAULT_YELLOW_TAG_PRESET.colGapMm,
+    topMarginMm: DEFAULT_YELLOW_TAG_PRESET.topMarginMm,
+    sideMarginMm: DEFAULT_YELLOW_TAG_PRESET.sideMarginMm,
+    ppTagConfig: DEFAULT_YELLOW_TAG_PRESET,
+    ppTagPresets: [DEFAULT_YELLOW_TAG_PRESET, ...DEFAULT_PPTAG_PRESETS],
+  }));
 
-  // PDF Export loading state
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  // Dedicated config for White Tag (70x32mm, 6 fields, white background, barcode lines)
+  const [whiteConfig, setWhiteConfig] = useState<Module2Config>(() => ({
+    ...DEFAULT_MODULE2_CONFIG,
+    activeTagType: 'shelftag',
+    tagWidthMm: DEFAULT_WHITE_TAG_PRESET.tagWidthMm,
+    tagHeightMm: DEFAULT_WHITE_TAG_PRESET.tagHeightMm,
+    columns: DEFAULT_WHITE_TAG_PRESET.columns,
+    rowGapMm: DEFAULT_WHITE_TAG_PRESET.rowGapMm,
+    colGapMm: DEFAULT_WHITE_TAG_PRESET.colGapMm,
+    topMarginMm: DEFAULT_WHITE_TAG_PRESET.topMarginMm,
+    sideMarginMm: DEFAULT_WHITE_TAG_PRESET.sideMarginMm,
+    shelftagConfig: DEFAULT_WHITE_TAG_PRESET,
+    shelftagPresets: [DEFAULT_WHITE_TAG_PRESET, ...DEFAULT_SHELFTAG_PRESETS],
+  }));
+
+  // Dynamic accessors based on current tag type
+  const isYellow = activeTagType === 'pp_tag';
+  const config = isYellow ? yellowConfig : whiteConfig;
+  const setConfig = isYellow ? setYellowConfig : setWhiteConfig;
+
+  // Transform active items into ShelfTagItem for preview, PDF, and print engine
+  // Sorted by Description (A to Z) case-insensitively BEFORE physical copy expansion
+  const shelfTagItems: ShelfTagItem[] = useMemo(() => {
+    if (isYellow) {
+      const sorted = [...yellowItems].sort((a, b) =>
+        (a.description || '').localeCompare(b.description || '', undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        })
+      );
+      return sorted.map(y => ({
+        id: y.id,
+        tagStyle: 'yellow',
+        barcode: y.upc,
+        description: y.description,
+        regularPrice: y.price,
+        buyPerAndUp: `${y.buy || 'BUY'} ${y.qty} ${y.uom || 'PCS AND UP'}`,
+        priceUnit: y.per,
+        copies: y.copies || 1,
+        isSelected: y.isSelected !== false,
+        // Direct field values for unified renderer
+        upc: y.upc,
+        buy: y.buy,
+        qty: y.qty,
+        uom: y.uom,
+        price: y.price,
+        per: y.per,
+      }));
+    } else {
+      const sorted = [...whiteItems].sort((a, b) =>
+        (a.description || '').localeCompare(b.description || '', undefined, {
+          sensitivity: 'base',
+          numeric: true,
+        })
+      );
+      return sorted.map(w => ({
+        id: w.id,
+        tagStyle: 'white',
+        barcode: w.upc,
+        description: w.description,
+        regularPrice: w.price,
+        sku: w.sku,
+        tagDate: w.date,
+        copies: w.copies || 1,
+        isSelected: w.isSelected !== false,
+        // Direct field values
+        upc: w.upc,
+        date: w.date,
+        price: w.price,
+      }));
+    }
+  }, [isYellow, yellowItems, whiteItems]);
 
   // Selected counts
-  const totalCount = shelfTagItems.length;
+  const totalCount = isYellow ? yellowItems.length : whiteItems.length;
   const selectedCount = useMemo(
     () => shelfTagItems.filter(i => i.isSelected !== false).length,
     [shelfTagItems]
   );
 
-  // Sample items for live comparison
-  const sampleWhite = useMemo(
-    () => shelfTagItems.find(i => i.tagStyle === 'white') || SAMPLE_SHELF_TAGS[0],
-    [shelfTagItems]
-  );
-  const sampleYellow = useMemo(
-    () => shelfTagItems.find(i => i.tagStyle === 'yellow') || SAMPLE_SHELF_TAGS[1],
-    [shelfTagItems]
-  );
+  // Total physical print copies
+  const totalPhysicalCopies = useMemo(() => {
+    const selected = shelfTagItems.filter(i => i.isSelected !== false);
+    return getTotalPhysicalCopies(selected, config.layoutOption);
+  }, [shelfTagItems, config.layoutOption]);
 
-  // Reset to original 12 samples
-  const handleResetSamples = () => {
-    setShelfTagItems(SAMPLE_SHELF_TAGS);
-  };
-
-  // Filtered printable items
-  const printItems = useMemo(() => {
-    return shelfTagItems.filter(i => i.isSelected !== false);
-  }, [shelfTagItems]);
+  // Filtered printable items expanded by individual SKU copy quantity
+  const effectivePrintItems = useMemo(() => {
+    const selected = shelfTagItems.filter(i => i.isSelected !== false);
+    return getEffectivePrintItems(selected, config.layoutOption);
+  }, [shelfTagItems, config.layoutOption]);
 
   // Compute live sheet layout for printing and preview
   const sheetLayout = useMemo(() => {
-    return computeShelftagSheetLayout(config, printItems.length);
-  }, [config, printItems.length]);
+    return computeShelftagSheetLayout(config, effectivePrintItems.length);
+  }, [config, effectivePrintItems.length]);
 
   // Partition printable items into page chunks for multi-page print document
   const allPagesChunks = useMemo(() => {
     const chunks: ShelfTagItem[][] = [];
     const perSheet = sheetLayout.tagsPerSheet || 1;
-    for (let i = 0; i < printItems.length; i += perSheet) {
-      chunks.push(printItems.slice(i, i + perSheet));
+    for (let i = 0; i < effectivePrintItems.length; i += perSheet) {
+      chunks.push(effectivePrintItems.slice(i, i + perSheet));
     }
     if (chunks.length === 0) chunks.push([]);
     return chunks;
-  }, [printItems, sheetLayout.tagsPerSheet]);
+  }, [effectivePrintItems, sheetLayout.tagsPerSheet]);
 
   const printContainerRef = useRef<HTMLDivElement>(null);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Top header print & export handlers
   const handlePrintSheet = () => {
-    if (printItems.length === 0) {
+    if (effectivePrintItems.length === 0) {
       alert('Please select at least one tag to print.');
       return;
     }
@@ -117,15 +210,20 @@ export const ShelfTagPPModule: React.FC<ShelfTagPPModuleProps> = ({
   };
 
   const handleExportPdf = async () => {
-    if (printItems.length === 0) {
+    if (effectivePrintItems.length === 0) {
       alert('Please select at least one tag to export as PDF.');
       return;
     }
 
     try {
       setIsExportingPdf(true);
-      const pdf = await generateShelftagPdf(printItems, config);
-      pdf.save(`PRG-Shelftags-${Date.now()}.pdf`);
+      const pdf = await generateShelftagPdf(
+        effectivePrintItems,
+        config,
+        undefined,
+        isYellow ? 'yellow' : 'white'
+      );
+      pdf.save(`PRG-${isYellow ? 'YellowTag' : 'WhiteShelfTag'}-${Date.now()}.pdf`);
     } catch (err: any) {
       console.error(err);
       alert('Failed to generate PDF: ' + (err?.message || 'Unknown error'));
@@ -136,163 +234,231 @@ export const ShelfTagPPModule: React.FC<ShelfTagPPModuleProps> = ({
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12">
-      {/* Top Banner & Header */}
+      {/* Top Header Banner */}
       <div className="bg-white rounded-2xl p-5 sm:p-6 border border-zinc-200 shadow-2xs print:hidden">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 text-xs font-black uppercase tracking-wider rounded-md bg-amber-400 text-zinc-950">
-                SHELFTAG / PP TAG
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-1 text-xs font-black uppercase tracking-wider rounded-md bg-amber-400 text-zinc-950">
+                MODULE 2 • v2.0.3
               </span>
               <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight flex items-center gap-2">
                 <span>🏷️</span>
-                <span>Shelftag / PP Tag Printing (White & Yellow)</span>
+                <span>Shelftag / PP Tag Printing Workflow</span>
               </h1>
             </div>
             <p className="text-xs text-zinc-600 max-w-3xl leading-relaxed">
-              Print high-clarity retail shelf edge tags and promotional Price Point (PP) tags. Fully customize individual tag field positions, dimensions, fonts, and barcodes with the visual layout editor.
+              Unified retail tag printing with physical millimeter precision. Seamlessly switch between Yellow Promo Tags (7 fields) and White ShelfTags (6 fields with barcode).
             </p>
           </div>
 
-          {/* Top Right Action Buttons: [Print Sheet] [Export PDF] */}
-          <div className="flex items-center gap-2 self-start lg:self-center shrink-0">
+          {/* Top Right: Tag Mode Toggle & Quick Print Actions */}
+          <div className="flex flex-wrap items-center gap-2.5 self-start lg:self-center shrink-0">
+            {/* Tag Mode Selector Toggle */}
+            <div className="inline-flex rounded-xl border border-zinc-300 p-1 bg-zinc-100 shadow-inner">
+              <button
+                type="button"
+                onClick={() => setActiveTagType('pp_tag')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                  isYellow
+                    ? 'bg-amber-400 text-zinc-950 shadow-xs border border-amber-500 ring-2 ring-amber-300/50'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50'
+                }`}
+              >
+                <span>🟡</span>
+                <span>Yellow Tag (PP Tag)</span>
+                {isYellow && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-950 text-amber-300 font-bold">
+                    85×38mm
+                  </span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTagType('shelftag')}
+                className={`px-3.5 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                  !isYellow
+                    ? 'bg-zinc-900 text-white shadow-xs ring-2 ring-zinc-500/50'
+                    : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50'
+                }`}
+              >
+                <span>⚪</span>
+                <span>White Tag (ShelfTag)</span>
+                {!isYellow && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-zinc-800 text-zinc-300 font-bold">
+                    70×32mm
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Print & PDF Action Buttons */}
             <button
               type="button"
               onClick={handlePrintSheet}
-              className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white font-bold rounded-xl text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-colors"
+              disabled={effectivePrintItems.length === 0}
+              className="px-4 py-2 bg-zinc-900 hover:bg-black disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
+              title="Direct Physical Print Sheet"
             >
-              <Printer className="w-4 h-4" />
-              <span>Print Sheet</span>
+              <Printer className="w-3.5 h-3.5 text-amber-400" />
+              <span>Print ({totalPhysicalCopies})</span>
             </button>
 
             <button
               type="button"
-              disabled={isExportingPdf}
               onClick={handleExportPdf}
-              className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-zinc-950 font-black rounded-xl text-xs flex items-center gap-2 shadow-xs cursor-pointer transition-colors disabled:opacity-50"
+              disabled={isExportingPdf || effectivePrintItems.length === 0}
+              className="px-4 py-2 bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
+              title="Download Printable PDF Document"
             >
               {isExportingPdf ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
               ) : (
-                <Download className="w-4 h-4 stroke-[2.5]" />
+                <Download className="w-3.5 h-3.5" />
               )}
               <span>Export PDF</span>
             </button>
           </div>
         </div>
 
-        {/* Custom Layout Ready Callout Box */}
-        <div className="mt-4 p-3.5 bg-amber-50/70 border border-amber-200/80 rounded-xl flex items-start gap-2.5 text-xs text-zinc-800">
-          <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-          <div className="leading-relaxed">
-            <strong className="font-extrabold text-amber-950">Tag Field Layout Editor:</strong> You can now customize the exact position, millimeter dimensions, font family/size, border, alignment, and barcode format for every single field on both White ShelfTags and Yellow PP Tags! Use the &quot;Tag Field Layout Editor&quot; tab below to drag, resize, and save custom layout presets.
-          </div>
-        </div>
-
-        {/* Navigation Tabs row */}
+        {/* 5-Step Retail Workflow Navigation */}
         <div className="mt-6 border-b border-zinc-200 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-1 sm:gap-4 flex-wrap">
-            {/* Tab 1: Items */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+            {/* Step 1: Tag Selection Indicator / Button */}
+            <div className="pb-3 px-2 sm:px-3 text-xs font-black flex items-center gap-1.5 border-b-2 border-transparent text-zinc-600 bg-zinc-50 rounded-t-lg">
+              <Tag className="w-3.5 h-3.5 text-amber-600" />
+              <span>1. Tag:</span>
+              <span className={`px-2 py-0.5 rounded text-[11px] font-black ${isYellow ? 'bg-amber-400 text-zinc-950' : 'bg-zinc-900 text-white'}`}>
+                {isYellow ? '🟡 Yellow Tag' : '⚪ White Tag'}
+              </span>
+            </div>
+
+            {/* Step 2: Data & Import */}
             <button
               type="button"
               onClick={() => setActiveTab('items')}
-              className={`pb-3 px-1 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              className={`pb-3 px-2 sm:px-3 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                 activeTab === 'items'
                   ? 'border-amber-500 text-zinc-950'
                   : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:border-zinc-300'
               }`}
             >
-              <Tag className="w-3.5 h-3.5" />
-              <span>1. Shelf Tag Items ({totalCount})</span>
+              <FileSpreadsheet className="w-3.5 h-3.5 text-amber-600" />
+              <span>2. Data & Import ({totalCount})</span>
             </button>
 
-            {/* Tab 2: Tag Field Layout Editor (FEATURE) */}
+            {/* Step 3: Field Layout Visual Editor */}
             <button
               type="button"
               onClick={() => setActiveTab('field_editor')}
-              className={`pb-3 px-1 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              className={`pb-3 px-2 sm:px-3 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                 activeTab === 'field_editor'
                   ? 'border-amber-500 text-zinc-950'
                   : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:border-zinc-300'
               }`}
             >
-              <Maximize2 className="w-3.5 h-3.5 text-amber-600" />
-              <span className="flex items-center gap-1.5">
-                <span>2. Tag Field Layout Editor</span>
-                <span className="px-1.5 py-0.2 bg-amber-100 text-amber-900 rounded font-black text-[9px] uppercase tracking-wide">
-                  Visual
-                </span>
-              </span>
+              <Sliders className="w-3.5 h-3.5 text-amber-600" />
+              <span>3. Field Layout Editor</span>
             </button>
 
-            {/* Tab 3: Sheet & Color Setup */}
+            {/* Step 4: Sheet & Margin Setup */}
             <button
               type="button"
               onClick={() => setActiveTab('layout')}
-              className={`pb-3 px-1 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              className={`pb-3 px-2 sm:px-3 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                 activeTab === 'layout'
                   ? 'border-amber-500 text-zinc-950'
                   : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:border-zinc-300'
               }`}
             >
-              <Palette className="w-3.5 h-3.5" />
-              <span>3. Sheet & Color Setup</span>
+              <Palette className="w-3.5 h-3.5 text-amber-600" />
+              <span>4. Paper & Sheet Setup</span>
             </button>
 
-            {/* Tab 4: Live Sheet Preview */}
+            {/* Step 5: Live Sheet Preview & Print */}
             <button
               type="button"
               onClick={() => setActiveTab('preview')}
-              className={`pb-3 px-1 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
+              className={`pb-3 px-2 sm:px-3 text-xs font-black flex items-center gap-2 border-b-2 transition-all cursor-pointer ${
                 activeTab === 'preview'
                   ? 'border-amber-500 text-zinc-950'
                   : 'border-transparent text-zinc-500 hover:text-zinc-800 hover:border-zinc-300'
               }`}
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>4. Live Sheet Preview & Print</span>
+              <Eye className="w-3.5 h-3.5 text-amber-600" />
+              <span>5. Live Preview & Print</span>
             </button>
           </div>
 
-          {/* Right Status Badge */}
-          <div className="pb-3 text-xs font-bold text-zinc-700">
-            Selected:{' '}
-            <span className="font-extrabold text-amber-700">
-              {selectedCount} / {totalCount} tags
+          {/* Right Status Indicator */}
+          <div className="pb-3 text-xs font-bold text-zinc-700 flex items-center gap-3">
+            <span>
+              Selected SKUs:{' '}
+              <strong className="text-zinc-900 font-extrabold">
+                {selectedCount} / {totalCount}
+              </strong>
+            </span>
+            <span>•</span>
+            <span>
+              Total Physical Tags:{' '}
+              <strong className="text-amber-700 font-black">
+                {totalPhysicalCopies}
+              </strong>
             </span>
           </div>
         </div>
       </div>
 
-      {/* Tab Content */}
+      {/* Main Tab Content */}
       <div className="print:m-0">
+        {/* Tab 1: Dedicated Import Table based on Active Tag Type */}
         {activeTab === 'items' && (
-          <ShelfTagItemsTab
-            items={shelfTagItems}
-            setItems={setShelfTagItems}
-            config={config}
-            onResetSamples={handleResetSamples}
-          />
+          isYellow ? (
+            <YellowTagImportTable
+              items={yellowItems}
+              setItems={setYellowItems}
+              onUpdateItems={setYellowItems}
+              onLoadSampleData={() => setYellowItems(SAMPLE_YELLOW_TAGS)}
+              onClearData={() => setYellowItems([])}
+              onSwitchToWhite={() => setActiveTagType('shelftag')}
+            />
+          ) : (
+            <WhiteTagImportTable
+              items={whiteItems}
+              setItems={setWhiteItems}
+              onUpdateItems={setWhiteItems}
+              onLoadSampleData={() => setWhiteItems(SAMPLE_WHITE_TAGS)}
+              onClearData={() => setWhiteItems([])}
+              onSwitchToYellow={() => setActiveTagType('pp_tag')}
+            />
+          )
         )}
 
+        {/* Tab 2: Visual Layout & Field Property Editor */}
         {activeTab === 'field_editor' && (
           <TagFieldLayoutEditorTab
             config={config}
             setConfig={setConfig}
-            sampleWhiteItem={sampleWhite}
-            sampleYellowItem={sampleYellow}
+            activeTagType={activeTagType}
+            setActiveTagType={setActiveTagType}
+            sampleWhiteItem={shelfTagItems.find(i => i.tagStyle === 'white')}
+            sampleYellowItem={shelfTagItems.find(i => i.tagStyle === 'yellow')}
           />
         )}
 
+        {/* Tab 3: Sheet Paper & Millimeter Margins */}
         {activeTab === 'layout' && (
           <LayoutColorSetupTab
             config={config}
             setConfig={setConfig}
-            sampleWhiteItem={sampleWhite}
-            sampleYellowItem={sampleYellow}
+            availableItems={shelfTagItems}
+            sampleWhiteItem={shelfTagItems.find(i => i.tagStyle === 'white')}
+            sampleYellowItem={shelfTagItems.find(i => i.tagStyle === 'yellow')}
           />
         )}
 
+        {/* Tab 4: Live Sheet Preview with 1:1 Rendering */}
         {activeTab === 'preview' && (
           <LiveSheetPreviewTab
             items={shelfTagItems}
@@ -302,7 +468,7 @@ export const ShelfTagPPModule: React.FC<ShelfTagPPModuleProps> = ({
         )}
       </div>
 
-      {/* Dedicated Multi-Page Browser Print Container - Always mounted and ready */}
+      {/* Multi-Page Browser Print Container */}
       <div
         id="shelftag-print-container"
         ref={printContainerRef}

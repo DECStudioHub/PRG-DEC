@@ -28,8 +28,12 @@ import { TagFieldPropertyPanel } from './TagFieldPropertyPanel';
 import {
   createDefaultFieldsForShelftag,
   createDefaultFieldsForPPTag,
+  createDefaultYellowTagFields,
+  createDefaultWhiteTagFields,
   DEFAULT_SHELFTAG_PRESETS,
   DEFAULT_PPTAG_PRESETS,
+  DEFAULT_YELLOW_TAG_PRESET,
+  DEFAULT_WHITE_TAG_PRESET,
   savePresetsToStorage,
   saveActivePreset,
 } from './fieldDefaults';
@@ -40,6 +44,8 @@ import { computeShelftagSheetLayout } from '../../utils/shelftagLayoutEngine';
 interface TagFieldLayoutEditorTabProps {
   config: Module2Config;
   setConfig: React.Dispatch<React.SetStateAction<Module2Config>>;
+  activeTagType?: Module2TagType;
+  setActiveTagType?: (type: Module2TagType) => void;
   sampleWhiteItem?: ShelfTagItem;
   sampleYellowItem?: ShelfTagItem;
 }
@@ -47,13 +53,23 @@ interface TagFieldLayoutEditorTabProps {
 export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = ({
   config,
   setConfig,
+  activeTagType: propActiveTagType,
+  setActiveTagType: propSetActiveTagType,
   sampleWhiteItem,
   sampleYellowItem,
 }) => {
   // Active Tag Type toggle (ShelfTag vs PP Tag)
-  const [activeTagType, setActiveTagType] = useState<Module2TagType>(
-    config.activeTagType || 'shelftag'
+  const [localActiveTagType, setLocalActiveTagType] = useState<Module2TagType>(
+    propActiveTagType || config.activeTagType || 'pp_tag'
   );
+
+  const activeTagType = propActiveTagType || localActiveTagType;
+  const setActiveTagType = (t: Module2TagType) => {
+    setLocalActiveTagType(t);
+    if (propSetActiveTagType) {
+      propSetActiveTagType(t);
+    }
+  };
 
   // Selected Field for Property Inspector
   const [selectedFieldId, setSelectedFieldId] = useState<TagFieldId>('description');
@@ -77,10 +93,13 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
 
   // Get active preset and presets list based on tag type
   const isShelftag = activeTagType === 'shelftag';
+  const defaultPresets = isShelftag
+    ? [DEFAULT_WHITE_TAG_PRESET, ...DEFAULT_SHELFTAG_PRESETS]
+    : [DEFAULT_YELLOW_TAG_PRESET, ...DEFAULT_PPTAG_PRESETS];
 
   const currentPresets = isShelftag
-    ? config.shelftagPresets || DEFAULT_SHELFTAG_PRESETS
-    : config.ppTagPresets || DEFAULT_PPTAG_PRESETS;
+    ? config.shelftagPresets || defaultPresets
+    : config.ppTagPresets || defaultPresets;
 
   const currentActivePreset = isShelftag
     ? config.shelftagConfig || currentPresets[0]
@@ -90,8 +109,8 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
   const updateActivePreset = (updater: (prev: TagLayoutPreset) => TagLayoutPreset) => {
     setConfig(prev => {
       const active = isShelftag
-        ? prev.shelftagConfig || prev.shelftagPresets?.[0] || DEFAULT_SHELFTAG_PRESETS[0]
-        : prev.ppTagConfig || prev.ppTagPresets?.[0] || DEFAULT_PPTAG_PRESETS[0];
+        ? prev.shelftagConfig || prev.shelftagPresets?.[0] || defaultPresets[0]
+        : prev.ppTagConfig || prev.ppTagPresets?.[0] || defaultPresets[0];
 
       const updated = updater(active);
 
@@ -128,7 +147,6 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
   const handleSwitchTagType = (type: Module2TagType) => {
     setActiveTagType(type);
     setConfig(prev => ({ ...prev, activeTagType: type }));
-    // Auto select description or promo header
     setSelectedFieldId(type === 'pp_tag' ? 'description' : 'description');
   };
 
@@ -240,7 +258,7 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
     }
 
     const updatedPresets = currentPresets.filter(p => p.id !== currentActivePreset.id);
-    const fallback = updatedPresets[0] || (isShelftag ? DEFAULT_SHELFTAG_PRESETS[0] : DEFAULT_PPTAG_PRESETS[0]);
+    const fallback = updatedPresets[0] || defaultPresets[0];
 
     setConfig(prev => {
       const next = { ...prev };
@@ -263,8 +281,8 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
   // Reset Single Field to Default (RESET FIELD)
   const handleResetSingleField = (fieldId: TagFieldId) => {
     const defaults = isShelftag
-      ? createDefaultFieldsForShelftag(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm)
-      : createDefaultFieldsForPPTag(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm);
+      ? createDefaultWhiteTagFields(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm)
+      : createDefaultYellowTagFields(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm);
 
     if (defaults[fieldId]) {
       updateActivePreset(prev => ({
@@ -281,8 +299,8 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
   // Reset Entire Layout (RESET ENTIRE LAYOUT)
   const handleResetEntireLayout = () => {
     const defaultFields = isShelftag
-      ? createDefaultFieldsForShelftag(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm)
-      : createDefaultFieldsForPPTag(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm);
+      ? createDefaultWhiteTagFields(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm)
+      : createDefaultYellowTagFields(currentActivePreset.tagWidthMm, currentActivePreset.tagHeightMm);
 
     updateActivePreset(prev => ({
       ...prev,
@@ -599,6 +617,7 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
         <div className="lg:col-span-7 h-[580px] sm:h-[640px]">
           <TagFieldVisualEditor
             tagType={activeTagType}
+            layoutOption={config.layoutOption}
             preset={currentActivePreset}
             selectedFieldId={selectedFieldId}
             onSelectField={setSelectedFieldId}
@@ -611,6 +630,7 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
         <div className="lg:col-span-5 h-[580px] sm:h-[640px]">
           <TagFieldPropertyPanel
             tagType={activeTagType}
+            layoutOption={config.layoutOption}
             tagWidthMm={currentActivePreset.tagWidthMm}
             tagHeightMm={currentActivePreset.tagHeightMm}
             fields={currentActivePreset.fields}
@@ -678,12 +698,13 @@ export const TagFieldLayoutEditorTab: React.FC<TagFieldLayoutEditorTabProps> = (
                   sampleYellowItem || {
                     id: 'sample-yellow',
                     tagStyle: 'yellow',
-                    sku: '480001600456',
-                    description: 'COCA-COLA 1.5L PET BOTTLE ZERO SUGAR',
-                    barcode: '480001600456',
-                    regularPrice: 75.0,
-                    promoPrice: 65.0,
-                    unit: 'PER BOTTLE',
+                    sku: '396758268186',
+                    description: config.layoutOption === 2 ? 'ROLD HVN HBMONO MSLPRA STD 11' : 'COCA-COLA 1.5L PET BOTTLE ZERO SUGAR',
+                    barcode: config.layoutOption === 2 ? '396758268186' : '480001600456',
+                    regularPrice: 64.0,
+                    promoPrice: 64.0,
+                    unit: config.layoutOption === 2 ? 'PR1' : 'PER BOTTLE',
+                    buyPerAndUp: config.layoutOption === 2 ? 'BUY 3 PR1 AND UP' : undefined,
                     locator: 'B01-02-08',
                     promoHeader: currentActivePreset.promoHeader || 'SPECIAL BUY',
                     promoValidity: 'Valid until supplies last',

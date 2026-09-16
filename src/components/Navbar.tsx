@@ -127,7 +127,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               <ClipboardList className="w-3.5 h-3.5" />
-              <span>COUNT TAG</span>
+              <span>PCOUNT W2W</span>
             </button>
 
             <button
@@ -242,7 +242,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 : 'bg-zinc-100 text-zinc-700'
             }`}
           >
-            COUNT TAG
+            PCOUNT W2W
           </button>
           <button
             type="button"

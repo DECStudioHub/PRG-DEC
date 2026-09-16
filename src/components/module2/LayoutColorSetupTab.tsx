@@ -1,6 +1,15 @@
 import React from 'react';
 import { Check, Sliders, Palette, LayoutGrid, CheckCircle2, AlertTriangle } from 'lucide-react';
-import { BarcodeType, Module2Config, Module2PresetId, PaperSize, ShelfTagItem, YellowPaletteId } from '../../types';
+import {
+  BarcodeType,
+  Module2Config,
+  Module2PresetId,
+  PaperSize,
+  ShelfTagItem,
+  YellowPaletteId,
+  YellowTagItem,
+  WhiteTagItem,
+} from '../../types';
 import { SHELFTAG_PRESETS, YELLOW_PALETTES } from './constants';
 import { TagStylesComparison } from './TagStylesComparison';
 import { computeShelftagSheetLayout, PAPER_OPTIONS } from '../../utils/shelftagLayoutEngine';
@@ -8,6 +17,7 @@ import { computeShelftagSheetLayout, PAPER_OPTIONS } from '../../utils/shelftagL
 interface LayoutColorSetupTabProps {
   config: Module2Config;
   setConfig: React.Dispatch<React.SetStateAction<Module2Config>>;
+  availableItems?: (YellowTagItem | WhiteTagItem | ShelfTagItem)[];
   sampleWhiteItem?: ShelfTagItem;
   sampleYellowItem?: ShelfTagItem;
 }
@@ -15,6 +25,7 @@ interface LayoutColorSetupTabProps {
 export const LayoutColorSetupTab: React.FC<LayoutColorSetupTabProps> = ({
   config,
   setConfig,
+  availableItems,
   sampleWhiteItem,
   sampleYellowItem,
 }) => {
@@ -30,6 +41,8 @@ export const LayoutColorSetupTab: React.FC<LayoutColorSetupTabProps> = ({
       tagWidthMm: preset.tagWidthMm,
       tagHeightMm: preset.tagHeightMm,
       columns: preset.columns,
+      rows: preset.rows,
+      paperSize: preset.paperSize,
       rowGapMm: preset.rowGapMm,
       colGapMm: preset.colGapMm,
       topMarginMm: preset.topMarginMm,
@@ -60,37 +73,60 @@ export const LayoutColorSetupTab: React.FC<LayoutColorSetupTabProps> = ({
           </h2>
         </div>
         <p className="text-zinc-500 mb-4 text-[11.5px]">
-          Choose an industry standard tag size or customize exact millimeter dimensions to match your shelf channel.
+          Choose an industry standard tag size or customize exact millimeter dimensions below to match your shelf channel.
         </p>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {SHELFTAG_PRESETS.map(preset => {
-            const isSelected = config.presetId === preset.id;
+            const isSelected = config.presetId === preset.id || (!config.presetId && preset.id === 'standard_letter');
 
             return (
               <div
                 key={preset.id}
                 onClick={() => handlePresetSelect(preset.id)}
-                className={`p-3.5 rounded-xl border-2 cursor-pointer transition-all relative ${
+                className={`p-4 rounded-xl border-2 cursor-pointer transition-all relative flex flex-col justify-between ${
                   isSelected
-                    ? 'border-amber-500 bg-amber-50/40 shadow-xs'
-                    : 'border-zinc-200 hover:border-zinc-300 bg-zinc-50/50 hover:bg-zinc-50'
+                    ? 'border-amber-500 bg-amber-50/50 shadow-xs ring-2 ring-amber-400/20'
+                    : 'border-zinc-200 hover:border-amber-300 bg-zinc-50/50 hover:bg-white'
                 }`}
               >
                 {/* Active check indicator */}
                 {isSelected && (
-                  <div className="absolute top-2.5 right-2.5 w-5 h-5 rounded-full bg-amber-500 text-zinc-950 flex items-center justify-center shadow-xs">
+                  <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-amber-500 text-zinc-950 flex items-center justify-center shadow-xs">
                     <Check className="w-3.5 h-3.5 stroke-[3]" />
                   </div>
                 )}
 
-                <div className="font-extrabold text-zinc-900 text-[13px] leading-tight pr-6">
-                  {preset.name}
+                <div>
+                  <div className="font-extrabold text-zinc-900 text-[13px] leading-tight pr-6">
+                    {preset.name}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="font-mono font-bold text-amber-800 bg-amber-100/70 border border-amber-200 px-2 py-0.5 rounded text-[11px]">
+                      {preset.tagSize}
+                    </span>
+                    <span className="font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded text-[10.5px]">
+                      {preset.badge}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 my-3 pt-2 border-t border-zinc-200/80 text-[11px]">
+                    <div>
+                      <span className="text-zinc-500">Columns × Rows:</span>
+                      <p className="font-bold text-zinc-800">{preset.columns} Cols × {preset.rows} Rows</p>
+                    </div>
+                    <div>
+                      <span className="text-zinc-500">Tags/Sheet:</span>
+                      <p className="font-bold text-zinc-900">{preset.tagsPerSheet} tags/sheet</p>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="text-zinc-500">Paper:</span>
+                      <p className="font-semibold text-zinc-800">{preset.paperName}</p>
+                    </div>
+                  </div>
                 </div>
-                <div className="font-mono font-bold text-amber-700 text-xs mt-1">
-                  {preset.dimensions}
-                </div>
-                <div className="text-[11px] text-zinc-600 mt-2 leading-relaxed">
+
+                <div className="text-[11px] text-zinc-500 pt-2 border-t border-zinc-100 leading-snug">
                   {preset.description}
                 </div>
               </div>
@@ -536,6 +572,7 @@ export const LayoutColorSetupTab: React.FC<LayoutColorSetupTabProps> = ({
       {/* 3. Live Comparison Box matching Image 2 */}
       <TagStylesComparison
         config={config}
+        availableItems={availableItems}
         sampleWhiteItem={sampleWhiteItem}
         sampleYellowItem={sampleYellowItem}
       />

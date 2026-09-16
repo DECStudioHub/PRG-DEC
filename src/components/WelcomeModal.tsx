@@ -165,6 +165,13 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           <h1 className="font-bold text-3xl sm:text-4xl md:text-[50px] leading-tight md:leading-none text-zinc-900 tracking-tight text-center">
             DECStudioAiCreation
           </h1>
+
+          {/* 7. Creator Disclaimer Statement */}
+          <div className="pt-2 max-w-xl mx-auto">
+            <p className="text-xs sm:text-sm font-medium text-zinc-600 italic tracking-normal text-center bg-zinc-50 border border-zinc-200/90 rounded-xl px-4 py-2.5 shadow-2xs">
+              “I’m not a programmer. I’m a human with a bold imagination—and AI is the tool that brings my ideas to life.”
+            </p>
+          </div>
         </div>
 
         {/* Feature Grid */}
@@ -233,25 +240,41 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
         {/* Quick Start Workflow */}
         <div className="p-4 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2">
           <span className="font-bold text-xs text-emerald-900 uppercase tracking-wide">
-            Fast 4-Step Workflow
+            Fast 5-Step Workflow
           </span>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] font-medium text-emerald-950">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px] font-medium text-emerald-950">
             <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/60">
-              <span className="font-bold text-emerald-800 block">1. Import</span>
-              Upload your .xlsx spreadsheet
+              <span className="font-bold text-emerald-800 block">1. Select Tag</span>
+              Choose Yellow or White Tag
             </div>
             <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/60">
-              <span className="font-bold text-emerald-800 block">2. Validate</span>
-              Check barcodes and locators
+              <span className="font-bold text-emerald-800 block">2. Import / Add</span>
+              Upload Excel or enter items
             </div>
             <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/60">
-              <span className="font-bold text-emerald-800 block">3. Configure</span>
-              Adjust layout & columns
+              <span className="font-bold text-emerald-800 block">3. Field Editor</span>
+              Customize tag positions & mm
             </div>
             <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/60">
-              <span className="font-bold text-emerald-800 block">4. Print</span>
-              Exact single-copy printout
+              <span className="font-bold text-emerald-800 block">4. Sheet Setup</span>
+              Paper, margins, & colors
             </div>
+            <div className="bg-white/80 p-2 rounded-lg border border-emerald-200/60">
+              <span className="font-bold text-emerald-800 block">5. Print & PDF</span>
+              Live preview, browser print, & PDF
+            </div>
+          </div>
+        </div>
+
+        {/* Creator Imagination & AI Disclaimer */}
+        <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 text-center">
+          <p className="text-xs font-medium italic text-amber-950 tracking-tight leading-relaxed">
+            “I’m not a programmer. I’m a human with a bold imagination—and AI is the tool that brings my ideas to life.”
+          </p>
+          <div className="mt-1 flex items-center justify-center gap-1.5 text-[10.5px] font-semibold text-amber-800/80 uppercase tracking-wider">
+            <span>DECStudioAiCreation</span>
+            <span>•</span>
+            <span>DEC v2.0.3</span>
           </div>
         </div>
 

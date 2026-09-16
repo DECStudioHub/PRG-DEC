@@ -27,6 +27,11 @@ export const AddEditTagModal: React.FC<AddEditTagModalProps> = ({
   const [unit, setUnit] = useState(initialTag?.unit || 'per PC');
   const [locator, setLocator] = useState(initialTag?.locator || 'A01-01');
   const [category, setCategory] = useState(initialTag?.category || 'Grocery');
+  const [copies, setCopies] = useState<number>(initialTag?.copies && initialTag.copies > 0 ? initialTag.copies : 1);
+  const [buyPerAndUp, setBuyPerAndUp] = useState(initialTag?.buyPerAndUp || '');
+  const [buyPer, setBuyPer] = useState(initialTag?.buyPer !== undefined ? String(initialTag.buyPer) : '');
+  const [up, setUp] = useState(initialTag?.up !== undefined ? String(initialTag.up) : '');
+  const [tagDate, setTagDate] = useState(initialTag?.tagDate || '');
 
   if (!isOpen) return null;
 
@@ -39,6 +44,7 @@ export const AddEditTagModal: React.FC<AddEditTagModalProps> = ({
 
     const regPriceNum = Math.max(0, parseFloat(regularPrice) || 0);
     const promoPriceNum = tagStyle === 'yellow' ? (parseFloat(promoPrice) || null) : null;
+    const copiesNum = Math.max(1, Math.floor(Number(copies) || 1));
 
     const newTag: ShelfTagItem = {
       id: initialTag?.id || `tag-${Date.now()}`,
@@ -55,7 +61,11 @@ export const AddEditTagModal: React.FC<AddEditTagModalProps> = ({
       locator: locator.trim().toUpperCase(),
       category: category.trim() || 'Grocery',
       isSelected: initialTag?.isSelected ?? true,
-      copies: initialTag?.copies || 1,
+      copies: copiesNum,
+      buyPerAndUp: buyPerAndUp.trim() || undefined,
+      buyPer: buyPer.trim() || undefined,
+      up: up.trim() || undefined,
+      tagDate: tagDate.trim() || undefined,
     };
 
     onSave(newTag);
@@ -257,6 +267,95 @@ export const AddEditTagModal: React.FC<AddEditTagModalProps> = ({
                 placeholder="e.g. Beverages"
                 className="w-full px-3 py-2 bg-zinc-50 border border-zinc-300 rounded-lg text-zinc-900"
               />
+            </div>
+          </div>
+
+          {/* Module 2 Reference & Copy Quantity Section */}
+          <div className="p-3.5 bg-zinc-50 border border-zinc-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold uppercase text-zinc-800 tracking-wider">
+                Print & Reference Settings
+              </span>
+              <span className="text-[10px] text-zinc-500 font-medium">Layout Option 1 & 2 Support</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Copy Quantity */}
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">
+                  Tag Copies (QTY)
+                </label>
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setCopies(prev => Math.max(1, prev - 1))}
+                    className="w-8 h-8 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 rounded-l-lg font-bold text-zinc-800 cursor-pointer"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={copies}
+                    onChange={e => setCopies(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full px-2 py-1.5 bg-white border-y border-zinc-300 text-center font-bold text-zinc-900 focus:outline-hidden"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCopies(prev => prev + 1)}
+                    className="w-8 h-8 flex items-center justify-center bg-zinc-200 hover:bg-zinc-300 rounded-r-lg font-bold text-zinc-800 cursor-pointer"
+                  >
+                    +
+                  </button>
+                </div>
+                <span className="text-[10px] text-zinc-500 mt-0.5 block">Physical tags to print</span>
+              </div>
+
+              {/* Buy Per and Up (Yellow Tag Promo Tier) */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-bold text-zinc-700 mb-1">
+                    BUY_PER
+                  </label>
+                  <input
+                    type="text"
+                    value={buyPer}
+                    onChange={e => setBuyPer(e.target.value)}
+                    placeholder="e.g. 3"
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-zinc-900 text-xs font-bold"
+                  />
+                  <span className="text-[10px] text-zinc-500 mt-0.5 block">Quantity tier</span>
+                </div>
+                <div>
+                  <label className="block font-bold text-zinc-700 mb-1">
+                    UP
+                  </label>
+                  <input
+                    type="text"
+                    value={up}
+                    onChange={e => setUp(e.target.value)}
+                    placeholder="e.g. 1 or AND UP"
+                    className="w-full px-2.5 py-1.5 bg-white border border-zinc-300 rounded-lg text-zinc-900 text-xs font-bold uppercase"
+                  />
+                  <span className="text-[10px] text-zinc-500 mt-0.5 block">Tier modifier</span>
+                </div>
+              </div>
+
+              {/* Tag Date (White Tag Date) */}
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">
+                  Tag Date
+                </label>
+                <input
+                  type="text"
+                  value={tagDate}
+                  onChange={e => setTagDate(e.target.value)}
+                  placeholder="DD.MM.YYYY or blank for today"
+                  className="w-full px-3 py-1.5 bg-white border border-zinc-300 rounded-lg text-zinc-900 text-xs"
+                />
+                <span className="text-[10px] text-zinc-500 mt-0.5 block">White tag stamp date</span>
+              </div>
             </div>
           </div>
 

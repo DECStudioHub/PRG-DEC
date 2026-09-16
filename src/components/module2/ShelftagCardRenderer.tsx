@@ -1,19 +1,31 @@
 import React, { useMemo } from 'react';
-import { Module2Config, ShelfTagItem, TagFieldConfig, TagFieldId } from '../../types';
+import {
+  Module2Config,
+  ShelfTagItem,
+  YellowTagItem,
+  WhiteTagItem,
+  TagFieldConfig,
+  TagFieldId,
+} from '../../types';
 import { generateBarcodeSvgString } from '../../utils/barcode';
 import { DEFAULT_PRINCE_LOGO, PRINCE_LOGO_INLINE_SVG, getEffectiveLogoUrl } from '../../utils/theme';
+import { getFormattedReferenceDate, formatBuyPerAndUp } from '../../utils/shelftagExpansion';
 import { YELLOW_PALETTES } from './constants';
 import {
   ALL_TAG_FIELDS,
-  createDefaultFieldsForShelftag,
-  createDefaultFieldsForPPTag,
+  YELLOW_TAG_FIELD_METAS,
+  WHITE_TAG_FIELD_METAS,
+  createDefaultYellowTagFields,
+  createDefaultWhiteTagFields,
 } from './fieldDefaults';
+import { getFormattedTodayDate } from '../../utils/module2ExcelService';
 
 interface ShelftagCardRendererProps {
-  item: ShelfTagItem;
+  item: YellowTagItem | WhiteTagItem | ShelfTagItem;
   config: Module2Config;
   scale?: number;
   className?: string;
+  tagTypeOverride?: 'yellow' | 'white';
 }
 
 export const ShelftagCardRenderer: React.FC<ShelftagCardRendererProps> = ({
@@ -21,45 +33,62 @@ export const ShelftagCardRenderer: React.FC<ShelftagCardRendererProps> = ({
   config,
   scale = 1,
   className = '',
+  tagTypeOverride,
 }) => {
-  const isYellow = item.tagStyle === 'yellow';
+  // Determine if Yellow or White
+  const isYellow = useMemo(() => {
+    if (tagTypeOverride) return tagTypeOverride === 'yellow';
+    if ('tagStyle' in item) return item.tagStyle === 'yellow';
+    if ('qty' in item && !('sku' in item && (item as any).sku)) return true;
+    if (config.activeTagType === 'pp_tag') return true;
+    return false;
+  }, [tagTypeOverride, item, config.activeTagType]);
 
   // Active preset and field layout
-  const layoutPreset = isYellow
-    ? config.ppTagConfig || {
-        tagWidthMm: config.tagWidthMm,
-        tagHeightMm: config.tagHeightMm,
-        yellowPalette: config.yellowPalette,
-        currencySymbol: config.currencySymbol,
-        showBorder: config.showBorder,
-        showCutGuides: config.showCutGuides,
-        showLogo: config.showLogo,
-        fields: createDefaultFieldsForPPTag(config.tagWidthMm, config.tagHeightMm),
-      }
-    : config.shelftagConfig || {
-        tagWidthMm: config.tagWidthMm,
-        tagHeightMm: config.tagHeightMm,
-        yellowPalette: config.yellowPalette,
-        currencySymbol: config.currencySymbol,
-        showBorder: config.showBorder,
-        showCutGuides: config.showCutGuides,
-        showLogo: config.showLogo,
-        fields: createDefaultFieldsForShelftag(config.tagWidthMm, config.tagHeightMm),
-      };
+  const layoutPreset = useMemo(() => {
+    if (isYellow) {
+      return (
+        config.ppTagConfig || {
+          tagWidthMm: config.tagWidthMm || 60,
+          tagHeightMm: config.tagHeightMm || 42,
+          yellowPalette: config.yellowPalette || 'golden',
+          currencySymbol: config.currencySymbol || '₱',
+          showBorder: config.showBorder,
+          showCutGuides: config.showCutGuides,
+          fields: createDefaultYellowTagFields(config.tagWidthMm || 60, config.tagHeightMm || 42),
+        }
+      );
+    } else {
+      return (
+        config.shelftagConfig || {
+          tagWidthMm: config.tagWidthMm || 60,
+          tagHeightMm: config.tagHeightMm || 42,
+          yellowPalette: 'golden',
+          currencySymbol: config.currencySymbol || '₱',
+          showBorder: config.showBorder,
+          showCutGuides: config.showCutGuides,
+          showLogo: config.showLogo,
+          fields: createDefaultWhiteTagFields(config.tagWidthMm || 60, config.tagHeightMm || 42),
+        }
+      );
+    }
+  }, [isYellow, config]);
 
-  const tagWidthMm = layoutPreset.tagWidthMm || config.tagWidthMm;
-  const tagHeightMm = layoutPreset.tagHeightMm || config.tagHeightMm;
+  const tagWidthMm = layoutPreset.tagWidthMm || config.tagWidthMm || (isYellow ? 60 : 60);
+  const tagHeightMm = layoutPreset.tagHeightMm || config.tagHeightMm || (isYellow ? 42 : 42);
   const fields = layoutPreset.fields;
 
   // Background color
   const bgColor = useMemo(() => {
     if (!isYellow) return '#ffffff';
-    const palette = YELLOW_PALETTES.find(p => p.id === (layoutPreset.yellowPalette || config.yellowPalette)) || YELLOW_PALETTES[0];
+    const palId = layoutPreset.yellowPalette || config.yellowPalette || 'golden';
+    const palette = YELLOW_PALETTES.find(p => p.id === palId) || YELLOW_PALETTES[0];
     return palette.bgHex;
   }, [isYellow, layoutPreset.yellowPalette, config.yellowPalette]);
 
-  // Barcode SVG calculation
+  // Barcode SVG calculation for White Tag
   const barcodeSvg = useMemo(() => {
+    if (isYellow) return '';
     const barcodeField = fields?.barcode;
     const format = barcodeField?.barcodeFormat || config.barcodeFormat || 'CODE128';
     const showText = barcodeField?.showBarcodeText !== false;
@@ -68,15 +97,40 @@ export const ShelftagCardRenderer: React.FC<ShelftagCardRendererProps> = ({
       : Math.max(8, Math.round(9 * scale));
 
     const heightPx = Math.max(16, Math.round((barcodeField?.height || 14) * 2.8 * scale));
-    const codeVal = item.barcode || item.sku || '00000000';
+    const codeVal = (item as any).barcode || (item as any).upc || (item as any).sku || '00000000';
 
     return generateBarcodeSvgString(codeVal, format, heightPx, showText, textSize);
-  }, [fields?.barcode, config.barcodeFormat, scale, item.barcode, item.sku]);
+  }, [isYellow, fields?.barcode, config.barcodeFormat, scale, item]);
 
-  // Currency & Prices
+  // Currency
   const currency = layoutPreset.currencySymbol || config.currencySymbol || '₱';
-  const regularPriceFormatted = item.regularPrice ? item.regularPrice.toFixed(2) : '0.00';
-  const promoPriceFormatted = item.promoPrice != null ? item.promoPrice.toFixed(2) : null;
+
+  // Resolved values for fields
+  const itemUpc = (item as any).upc || (item as any).barcode || (item as any).sku || '';
+  const itemDesc = item.description || '';
+  const itemQty = (item as any).qty != null ? String((item as any).qty) : '3';
+  const itemBuy = (item as any).buy || 'BUY';
+  const itemUom = (item as any).uom || 'PCS AND UP';
+  const itemPer = (item as any).per || '/PC';
+  const itemSku = (item as any).sku || itemUpc.slice(-6);
+  const itemDate = (item as any).date || (item as any).tagDate || getFormattedTodayDate();
+
+  const itemPriceNum = useMemo(() => {
+    if ('price' in item && typeof item.price === 'number') return item.price;
+    if ('promoPrice' in item && typeof item.promoPrice === 'number' && item.promoPrice > 0)
+      return item.promoPrice;
+    if ('regularPrice' in item && typeof item.regularPrice === 'number') return item.regularPrice;
+    return 0;
+  }, [item]);
+
+  // Determine active field metas to render
+  const activeMetas = useMemo(() => {
+    if (isYellow) {
+      return YELLOW_TAG_FIELD_METAS;
+    } else {
+      return WHITE_TAG_FIELD_METAS;
+    }
+  }, [isYellow]);
 
   return (
     <div
@@ -86,11 +140,12 @@ export const ShelftagCardRenderer: React.FC<ShelftagCardRendererProps> = ({
         height: `${tagHeightMm * scale}mm`,
         boxSizing: 'border-box',
         backgroundColor: bgColor,
-        border: layoutPreset.showBorder !== false && config.showBorder !== false
-          ? isYellow
-            ? `${Math.max(1.5, 1.5 * scale)}px solid #000000`
-            : `${Math.max(1, 1 * scale)}px solid #18181b`
-          : '1px dashed #d4d4d8',
+        border:
+          layoutPreset.showBorder !== false && config.showBorder !== false
+            ? isYellow
+              ? `${Math.max(1.5, 1.5 * scale)}px solid #000000`
+              : `${Math.max(1, 1 * scale)}px solid #18181b`
+            : '1px dashed #d4d4d8',
       }}
     >
       {/* Corner Cutting Guides */}
@@ -103,110 +158,241 @@ export const ShelftagCardRenderer: React.FC<ShelftagCardRendererProps> = ({
         </>
       )}
 
-      {/* DYNAMIC FIELD-DRIVEN RENDERING ENGINE (Section 26) */}
-      {ALL_TAG_FIELDS.map(meta => {
-        const field = fields?.[meta.id];
-        if (!field || !field.visible) return null;
+      {/* DYNAMIC FIELD RENDERING */}
+      {activeMetas.map(meta => {
+        // Look up field configuration directly or via aliases
+        let field = fields?.[meta.id];
+        if (!field) {
+          if (meta.id === 'price') field = fields?.regularPrice;
+          else if (meta.id === 'upc') field = fields?.barcode;
+          else if (meta.id === 'date') field = fields?.tagDate;
+          else if (meta.id === 'buy' || meta.id === 'uom') field = fields?.buyPerAndUp;
+          else if (meta.id === 'per') field = fields?.priceUnit;
+        }
+
+        if (!field || field.visible === false) return null;
 
         const leftMm = field.x * scale;
         const topMm = field.y * scale;
         const widthMm = field.width * scale;
         const heightMm = field.height * scale;
 
-        const pTopMm = field.paddingTopMm * scale;
-        const pBottomMm = field.paddingBottomMm * scale;
-        const pLeftMm = field.paddingLeftMm * scale;
-        const pRightMm = field.paddingRightMm * scale;
-
-        const fontSizePx = Math.max(6, field.fontSizePt * scale * 1.333);
-
-        const fieldStyle: React.CSSProperties = {
-          position: 'absolute',
-          left: `${leftMm}mm`,
-          top: `${topMm}mm`,
-          width: `${widthMm}mm`,
-          height: `${heightMm}mm`,
-          paddingTop: `${pTopMm}mm`,
-          paddingBottom: `${pBottomMm}mm`,
-          paddingLeft: `${pLeftMm}mm`,
-          paddingRight: `${pRightMm}mm`,
-          fontFamily: field.fontFamily || 'Arial, sans-serif',
-          fontSize: `${fontSizePx}px`,
-          fontWeight: field.fontWeight === 'bold' ? 800 : field.fontWeight === 'medium' ? 600 : 400,
-          fontStyle: field.fontStyle || 'normal',
-          textDecoration: field.textDecoration || 'none',
-          color: field.textColor || (isYellow ? '#000000' : '#18181b'),
-          textAlign: field.textAlign || 'left',
-          textTransform: field.textTransform === 'none' ? undefined : field.textTransform,
-          lineHeight: field.lineHeightPt ? `${field.lineHeightPt * scale * 1.333}px` : 1.15,
-          border: field.borderStyle && field.borderStyle !== 'none'
-            ? `${Math.max(1, (field.borderWidthPx || 1) * scale)}px ${field.borderStyle} ${field.borderColor || '#000000'}`
-            : undefined,
-          borderRadius: field.borderRadiusMm ? `${field.borderRadiusMm * scale}mm` : undefined,
-          backgroundColor: field.backgroundColor || undefined,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent:
-            field.verticalAlign === 'top'
-              ? 'flex-start'
-              : field.verticalAlign === 'bottom'
-              ? 'flex-end'
-              : 'center',
-          alignItems:
-            field.textAlign === 'left'
-              ? 'flex-start'
-              : field.textAlign === 'right'
-              ? 'flex-end'
-              : 'center',
-          overflow: 'hidden',
-          boxSizing: 'border-box',
-          zIndex: meta.id === 'promoHeader' ? 5 : 10,
-        };
+        const fontSizePx = Math.max(6, Math.round(field.fontSizePt * 1.333 * scale));
 
         return (
-          <div key={meta.id} style={fieldStyle}>
-            {/* 1. DESCRIPTION FIELD */}
+          <div
+            key={meta.id}
+            id={`tag-field-${meta.id}`}
+            style={{
+              position: 'absolute',
+              left: `${leftMm}mm`,
+              top: `${topMm}mm`,
+              width: `${widthMm}mm`,
+              height: `${heightMm}mm`,
+              fontFamily: field.fontFamily || 'Arial',
+              color: field.textColor || '#000000',
+              fontWeight: field.fontWeight === 'bold' ? 800 : 400,
+              fontStyle: field.fontStyle || 'normal',
+              textDecoration: field.textDecoration || 'none',
+              textAlign: field.textAlign || 'left',
+              textTransform: field.textTransform || 'none',
+              overflow: 'hidden',
+              boxSizing: 'border-box',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent:
+                field.verticalAlign === 'middle'
+                  ? 'center'
+                  : field.verticalAlign === 'bottom'
+                  ? 'flex-end'
+                  : 'flex-start',
+              alignItems:
+                field.textAlign === 'center'
+                  ? 'center'
+                  : field.textAlign === 'right'
+                  ? 'flex-end'
+                  : 'flex-start',
+              paddingTop: `${(field.paddingTopMm || 0) * scale}mm`,
+              paddingBottom: `${(field.paddingBottomMm || 0) * scale}mm`,
+              paddingLeft: `${(field.paddingLeftMm || 0) * scale}mm`,
+              paddingRight: `${(field.paddingRightMm || 0) * scale}mm`,
+              border:
+                field.borderStyle && field.borderStyle !== 'none'
+                  ? `${(field.borderWidthPx || 1) * scale}px ${field.borderStyle} ${field.borderColor || '#000'}`
+                  : 'none',
+              borderRadius: field.borderRadiusMm ? `${field.borderRadiusMm * scale}mm` : undefined,
+              backgroundColor: field.backgroundColor || 'transparent',
+              zIndex: meta.id === 'price' ? 10 : 5,
+            }}
+          >
+            {/* 1. DESCRIPTION */}
             {meta.id === 'description' && (
               <div
-                className={`w-full font-black ${
-                  field.textWrap ? `line-clamp-${field.maxLines || 2}` : 'truncate'
-                }`}
-                title={item.description}
-              >
-                {item.description}
-              </div>
-            )}
-
-            {/* 2. SKU / CODE FIELD */}
-            {meta.id === 'sku' && (
-              <div className="w-full truncate font-bold tracking-tight">
-                {field.prefixText || 'SKU: '}
-                {item.sku}
-              </div>
-            )}
-
-            {/* 3. LOCATOR FIELD */}
-            {meta.id === 'locator' && item.locator && (
-              <div
-                className={
-                  field.locatorBadge
-                    ? isYellow
-                      ? 'bg-black text-white font-mono font-bold px-1.5 py-0.2 rounded-xs'
-                      : 'border border-black font-mono font-bold px-1 rounded-xs'
-                    : 'font-mono font-bold'
-                }
+                className="w-full tracking-tight leading-snug"
                 style={{
                   fontSize: `${fontSizePx}px`,
+                  lineHeight: field.lineHeightPt
+                    ? `${field.lineHeightPt * 1.333 * scale}px`
+                    : '1.18',
+                  wordBreak: 'break-word',
+                  whiteSpace: field.textWrap ? 'normal' : 'nowrap',
+                  display: '-webkit-box',
+                  WebkitLineClamp: field.maxLines || 2,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
                 }}
               >
-                {item.locator}
+                {itemDesc}
               </div>
             )}
 
-            {/* 4. BARCODE FIELD */}
-            {meta.id === 'barcode' && (
+            {/* 2. YELLOW UPC (Bold numbers, no barcode lines) */}
+            {meta.id === 'upc' && isYellow && (
               <div
-                className="w-full h-full flex flex-col justify-end overflow-hidden barcode-container"
+                className="w-full font-mono font-black tracking-wider truncate leading-none select-none"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'right',
+                  lineHeight: 1,
+                }}
+              >
+                {itemUpc}
+              </div>
+            )}
+
+            {/* 3. YELLOW BUY */}
+            {meta.id === 'buy' && isYellow && (
+              <div
+                className="w-full font-black tracking-normal leading-none select-none"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'left',
+                  lineHeight: 1,
+                }}
+              >
+                {itemBuy}
+              </div>
+            )}
+
+            {/* 4. YELLOW QTY */}
+            {meta.id === 'qty' && isYellow && (
+              <div
+                className="w-full font-black tracking-normal leading-none select-none"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'left',
+                  lineHeight: 1,
+                }}
+              >
+                {itemQty}
+              </div>
+            )}
+
+            {/* 5. YELLOW UOM */}
+            {meta.id === 'uom' && isYellow && (
+              <div
+                className="w-full font-black tracking-normal leading-none select-none uppercase"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'left',
+                  lineHeight: 1,
+                }}
+              >
+                {itemUom}
+              </div>
+            )}
+
+            {/* 6. PRICE (Yellow & White - Fixed Piso sign alignment) */}
+            {meta.id === 'price' && (
+              <div
+                className="w-full flex items-baseline leading-none whitespace-nowrap"
+                style={{
+                  justifyContent:
+                    field.textAlign === 'left'
+                      ? 'flex-start'
+                      : field.textAlign === 'center'
+                      ? 'center'
+                      : 'flex-end',
+                }}
+              >
+                {field.showCurrencySymbol !== false && (
+                  <span
+                    className="font-black select-none leading-none mr-0.5"
+                    style={{
+                      fontSize: `${Math.max(8, Math.round(fontSizePx * 0.72))}px`,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {field.currencySymbol || currency}
+                  </span>
+                )}
+                <span
+                  className="font-black leading-none whitespace-nowrap"
+                  style={{
+                    fontSize: `${fontSizePx}px`,
+                    lineHeight: 1,
+                  }}
+                >
+                  {field.decimalPlaces === 0
+                    ? Math.floor(itemPriceNum).toLocaleString('en-US')
+                    : itemPriceNum.toLocaleString('en-US', {
+                        minimumFractionDigits: field.decimalPlaces ?? 2,
+                        maximumFractionDigits: field.decimalPlaces ?? 2,
+                      })}
+                </span>
+              </div>
+            )}
+
+            {/* 7. YELLOW PER */}
+            {meta.id === 'per' && isYellow && (
+              <div
+                className="w-full font-black tracking-normal leading-none select-none uppercase"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'left',
+                  lineHeight: 1,
+                }}
+              >
+                {itemPer}
+              </div>
+            )}
+
+            {/* 8. WHITE DATE */}
+            {meta.id === 'date' && !isYellow && (
+              <div
+                className="w-full font-bold truncate leading-none select-none"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'center',
+                  lineHeight: 1,
+                }}
+              >
+                {itemDate}
+              </div>
+            )}
+
+            {/* 9. WHITE LOGO */}
+            {meta.id === 'logo' && !isYellow && (
+              <div
+                className="w-full h-full flex items-center justify-start overflow-hidden select-none"
+                style={{ maxHeight: `${heightMm}mm` }}
+              >
+                <img
+                  src={getEffectiveLogoUrl(config.storeLogoUrl)}
+                  alt="Prince Retail"
+                  className="max-h-full max-w-full object-contain select-none"
+                  referrerPolicy="no-referrer"
+                  onError={e => {
+                    (e.currentTarget as HTMLImageElement).src = PRINCE_LOGO_INLINE_SVG;
+                  }}
+                />
+              </div>
+            )}
+
+            {/* 10. WHITE BARCODE (Scannable bars + UPC number) */}
+            {meta.id === 'barcode' && !isYellow && (
+              <div
+                className="w-full h-full flex flex-col justify-center overflow-hidden"
                 style={{
                   alignItems:
                     field.barcodeAlign === 'center'
@@ -223,98 +409,22 @@ export const ShelftagCardRenderer: React.FC<ShelftagCardRendererProps> = ({
               </div>
             )}
 
-            {/* 5. REGULAR PRICE FIELD */}
-            {meta.id === 'regularPrice' && (
-              <div className="flex flex-col items-end leading-none">
-                {field.prefixText && (
-                  <span
-                    className="uppercase font-bold tracking-wider opacity-70 mb-0.5"
-                    style={{ fontSize: `${Math.max(6, fontSizePx * 0.55)}px` }}
-                  >
-                    {field.prefixText}
-                  </span>
-                )}
-                <span className={field.strikeThrough ? 'line-through' : ''}>
-                  {field.showCurrencySymbol !== false ? `${field.currencySymbol || currency} ` : ''}
-                  {field.decimalPlaces === 0
-                    ? Math.round(item.regularPrice || 0)
-                    : regularPriceFormatted}
-                </span>
-              </div>
-            )}
-
-            {/* 6. PRICE PROMO FIELD */}
-            {meta.id === 'promoPrice' && (
-              <div className="flex flex-col items-end leading-none">
-                {field.prefixText && (
-                  <span
-                    className="uppercase font-bold tracking-wider opacity-70 mb-0.5"
-                    style={{ fontSize: `${Math.max(6, fontSizePx * 0.55)}px` }}
-                  >
-                    {field.prefixText}
-                  </span>
-                )}
-                <span className="font-black">
-                  {field.showCurrencySymbol !== false ? `${field.currencySymbol || currency} ` : ''}
-                  {field.decimalPlaces === 0
-                    ? Math.round(item.promoPrice != null ? item.promoPrice : item.regularPrice || 0)
-                    : promoPriceFormatted || regularPriceFormatted}
-                </span>
-              </div>
-            )}
-
-            {/* 7. PRICE UNIT FIELD */}
-            {meta.id === 'priceUnit' && (
-              <div className="w-full truncate font-bold uppercase tracking-wider">
-                {item.unit ? item.unit.toUpperCase() : 'PER PC'}
-              </div>
-            )}
-
-            {/* 8. PROMO HEADER BAR (For PP Tag) */}
-            {meta.id === 'promoHeader' && (
+            {/* 11. WHITE SKU */}
+            {meta.id === 'sku' && !isYellow && (
               <div
-                className="w-full h-full flex items-center justify-between px-2 text-white font-black tracking-tight uppercase"
-                style={{ backgroundColor: field.backgroundColor || '#E31B23' }}
-              >
-                <span className="truncate">
-                  {item.promoHeader || layoutPreset.promoHeader || 'SPECIAL BUY'}
-                </span>
-                <span className="text-right shrink-0 opacity-90 text-[9px]">
-                  PROMO TAG
-                </span>
-              </div>
-            )}
-
-            {/* 9. STORE LOGO FIELD */}
-            {meta.id === 'logo' && (layoutPreset.showLogo !== false && config.showLogo !== false) && (
-              <img
-                src={getEffectiveLogoUrl(config.logoUrl)}
-                alt="Prince"
-                className="object-contain max-h-full max-w-full"
-                referrerPolicy="no-referrer"
-                onError={(e) => {
-                  const target = e.currentTarget as HTMLImageElement;
-                  if (target.src !== PRINCE_LOGO_INLINE_SVG) {
-                    target.src = PRINCE_LOGO_INLINE_SVG;
-                  }
+                className="w-full font-mono font-black tracking-wider truncate leading-none select-none uppercase"
+                style={{
+                  fontSize: `${fontSizePx}px`,
+                  textAlign: field.textAlign || 'left',
+                  lineHeight: 1,
                 }}
-              />
+              >
+                {itemSku}
+              </div>
             )}
           </div>
         );
       })}
-
-      {/* Printable Document Branding Footer */}
-      <div
-        className="absolute bottom-0.5 right-1 pointer-events-none select-none font-sans font-medium z-30 tracking-tight leading-none"
-        style={{
-          color: isYellow ? '#000000' : '#18181b',
-          opacity: 0.3,
-          fontSize: `${Math.max(5, 5.5 * scale)}px`,
-        }}
-      >
-        Powered by: DECStudioHub
-      </div>
     </div>
   );
 };

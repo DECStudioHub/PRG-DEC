@@ -70,6 +70,7 @@ export interface ShelftagLayoutInputs {
   tagWidthMm: number;
   tagHeightMm: number;
   columns?: number;
+  rows?: number;
   colGapMm: number; // Horizontal gap
   rowGapMm: number; // Vertical gap
   topMarginMm: number;
@@ -154,20 +155,20 @@ export function computeShelftagSheetLayout(
   inputs: ShelftagLayoutInputs | Module2Config,
   totalItemsCount = 0
 ): ShelftagSheetLayout {
-  const paperSize = inputs.paperSize || 'A4';
+  const paperSize = inputs.paperSize || 'LETTER';
   const orientation = (inputs.orientation as 'portrait' | 'landscape') || 'portrait';
 
   // 1. Determine raw physical paper dimensions
-  let baseWidthMm = 210;
-  let baseHeightMm = 297;
-  let paperName = 'A4';
+  let baseWidthMm = 215.9;
+  let baseHeightMm = 279.4;
+  let paperName = 'Letter';
 
-  const spec = PAPER_SPECS[paperSize] || PAPER_SPECS.A4;
+  const spec = PAPER_SPECS[paperSize] || PAPER_SPECS.LETTER;
   paperName = spec.name;
 
   if (paperSize === 'CUSTOM') {
-    baseWidthMm = Math.max(50, Number(inputs.customWidthMm) || 210);
-    baseHeightMm = Math.max(50, Number(inputs.customHeightMm) || 297);
+    baseWidthMm = Math.max(50, Number(inputs.customWidthMm) || 215.9);
+    baseHeightMm = Math.max(50, Number(inputs.customHeightMm) || 279.4);
   } else {
     baseWidthMm = spec.widthMm;
     baseHeightMm = spec.heightMm;
@@ -186,9 +187,9 @@ export function computeShelftagSheetLayout(
 
   // 4. Resolve Tag Geometry (default target 3 columns)
   const columns = Math.max(1, Number(inputs.columns) || 3);
-  const tagWidthMm = Math.max(20, Number(inputs.tagWidthMm) || 65);
+  const tagWidthMm = Math.max(20, Number(inputs.tagWidthMm) || 60);
   const tagHeightMm = Math.max(15, Number(inputs.tagHeightMm) || 42);
-  const colGapMm = Math.max(0, Number(inputs.colGapMm) || 2.5);
+  const colGapMm = Math.max(0, Number(inputs.colGapMm) || 3);
   const rowGapMm = Math.max(0, Number(inputs.rowGapMm) || 3);
 
   // 5. Available Printable Space
@@ -213,17 +214,20 @@ export function computeShelftagSheetLayout(
     ? leftMarginMm + extraHorizontalSpaceMm / 2
     : leftMarginMm;
 
-  // 7. Automatic Row Calculation
+  // 7. Automatic & Explicit Row Calculation
   // Available Height = Paper Height - Top Margin - Bottom Margin
   // Max Rows = floor((Available Height + rowGap) / (tagHeight + rowGap))
-  const maxRows = Math.max(
+  const calculatedMaxRows = Math.max(
     1,
     Math.floor((availableHeightMm + rowGapMm) / (tagHeightMm + rowGapMm))
   );
+  const explicitRows = Number((inputs as any).rows) || 0;
+  // If rows is explicitly set (e.g. 5 for 3x5 or 6 for 3x6), respect it if it fits the printable area
+  const maxRows = explicitRows > 0 ? Math.min(explicitRows, calculatedMaxRows) : calculatedMaxRows;
   const requiredHeightMm = maxRows * tagHeightMm + (maxRows - 1) * rowGapMm;
   const fitsHeight = requiredHeightMm <= availableHeightMm + 0.05;
 
-  // 8. Capacity & Estimated Sheets
+  // 8. Capacity & Estimated Sheets (Columns * Rows = Tags Per Sheet, e.g. 3 x 6 = 18 tags/sheet)
   const tagsPerSheet = columns * maxRows;
   const totalItems = totalItemsCount || (inputs as any).totalItems || 0;
   const totalPages = Math.max(1, Math.ceil(Math.max(1, totalItems) / tagsPerSheet));

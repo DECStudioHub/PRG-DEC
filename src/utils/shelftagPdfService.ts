@@ -1,13 +1,21 @@
 import { jsPDF } from 'jspdf';
-import { Module2Config, ShelfTagItem, TagFieldConfig } from '../types';
+import {
+  Module2Config,
+  ShelfTagItem,
+  YellowTagItem,
+  WhiteTagItem,
+} from '../types';
 import { generateBarcodeDataUrl } from './barcode';
 import { YELLOW_PALETTES } from '../components/module2/constants';
 import {
-  ALL_TAG_FIELDS,
-  createDefaultFieldsForShelftag,
-  createDefaultFieldsForPPTag,
+  createDefaultYellowTagFields,
+  createDefaultWhiteTagFields,
+  YELLOW_TAG_FIELD_METAS,
+  WHITE_TAG_FIELD_METAS,
 } from '../components/module2/fieldDefaults';
 import { computeShelftagSheetLayout } from './shelftagLayoutEngine';
+import { getEffectivePrintItems } from './shelftagExpansion';
+import { getFormattedTodayDate } from './module2ExcelService';
 
 export interface ShelftagPdfProgress {
   currentPage: number;
@@ -16,17 +24,20 @@ export interface ShelftagPdfProgress {
 }
 
 export async function generateShelftagPdf(
-  items: ShelfTagItem[],
+  items: (YellowTagItem | WhiteTagItem | ShelfTagItem)[],
   config: Module2Config,
-  onProgress?: (progress: ShelftagPdfProgress) => void
+  onProgress?: (progress: ShelftagPdfProgress) => void,
+  tagTypeOverride?: 'yellow' | 'white'
 ): Promise<jsPDF> {
-  const printItems = items.filter(i => i.isSelected !== false);
+  const selectedItems = items.filter(i => i.isSelected !== false);
+  const printItems = getEffectivePrintItems(selectedItems as any, config.layoutOption);
   if (printItems.length === 0) {
     throw new Error('No items selected to print. Please select at least one tag.');
   }
 
   // Use the shared layout calculation engine
   const layout = computeShelftagSheetLayout(config, printItems.length);
+
   const pageWidth = layout.paperWidthMm;
   const pageHeight = layout.paperHeightMm;
   const orientation = layout.orientation;
@@ -43,19 +54,12 @@ export async function generateShelftagPdf(
   const tagWidth = layout.tagWidthMm;
   const tagHeight = layout.tagHeightMm;
 
-  // Active yellow color RGB
-  const activePalette = YELLOW_PALETTES.find(p => p.id === config.yellowPalette) || YELLOW_PALETTES[0];
-  const yellowHex = activePalette.bgHex;
-  const rYellow = parseInt(yellowHex.slice(1, 3), 16) || 254;
-  const gYellow = parseInt(yellowHex.slice(3, 5), 16) || 237;
-  const bYellow = parseInt(yellowHex.slice(5, 7), 16) || 1;
-
-  // Barcode image cache
+  // Barcode image cache for White Tags
   const barcodeCache = new Map<string, string>();
   const getBarcode = (val: string, format?: any, showText?: boolean): string => {
     const key = `${val}_${format}_${showText}`;
     if (barcodeCache.has(key)) return barcodeCache.get(key)!;
-    const url = generateBarcodeDataUrl(val, format || config.barcodeFormat, 45);
+    const url = generateBarcodeDataUrl(val, format || config.barcodeFormat || 'CODE128', 45);
     if (url) barcodeCache.set(key, url);
     return url;
   };
@@ -63,7 +67,7 @@ export async function generateShelftagPdf(
   const currency = config.currencySymbol || '₱';
 
   for (let i = 0; i < printItems.length; i++) {
-    const item = printItems[i];
+    const item = printItems[i] as any;
     const pageIndex = Math.floor(i / tagsPerPage);
     const indexOnPage = i % tagsPerPage;
 
@@ -83,10 +87,22 @@ export async function generateShelftagPdf(
     const x = placement.xMm;
     const y = placement.yMm;
 
-    const isYellow = item.tagStyle === 'yellow';
+    // Determine if Yellow or White
+    const isYellow =
+      tagTypeOverride === 'yellow' ||
+      item.tagStyle === 'yellow' ||
+      ('qty' in item && !('sku' in item && item.sku)) ||
+      config.activeTagType === 'pp_tag';
 
     // 1. Tag Background
     if (isYellow) {
+      const palId = config.yellowPalette || 'golden';
+      const activePalette =
+        YELLOW_PALETTES.find(p => p.id === palId) || YELLOW_PALETTES[0];
+      const yellowHex = activePalette.bgHex;
+      const rYellow = parseInt(yellowHex.slice(1, 3), 16) || 254;
+      const gYellow = parseInt(yellowHex.slice(3, 5), 16) || 237;
+      const bYellow = parseInt(yellowHex.slice(5, 7), 16) || 1;
       doc.setFillColor(rYellow, gYellow, bYellow);
     } else {
       doc.setFillColor(255, 255, 255);
@@ -94,7 +110,7 @@ export async function generateShelftagPdf(
     doc.rect(x, y, tagWidth, tagHeight, 'F');
 
     // Tag Border
-    if (config.showBorder) {
+    if (config.showBorder !== false) {
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(isYellow ? 0.35 : 0.2);
       doc.rect(x, y, tagWidth, tagHeight, 'S');
@@ -115,189 +131,182 @@ export async function generateShelftagPdf(
       doc.line(x + tagWidth, y + tagHeight + 0.5, x + tagWidth, y + tagHeight + 0.5 + mLen);
     }
 
-    // 2. DYNAMIC FIELD LAYOUT RENDERING ENGINE (Section 22 & 26)
+    // Fields lookup
     const activePreset = isYellow
       ? config.ppTagConfig || {
-          fields: createDefaultFieldsForPPTag(tagWidth, tagHeight),
-          promoHeader: 'SPECIAL BUY',
+          fields: createDefaultYellowTagFields(tagWidth, tagHeight),
         }
       : config.shelftagConfig || {
-          fields: createDefaultFieldsForShelftag(tagWidth, tagHeight),
+          fields: createDefaultWhiteTagFields(tagWidth, tagHeight),
         };
 
     const fields = activePreset.fields;
 
-    // Render Promo Header Banner first if present & visible
-    const promoHeaderField = fields?.promoHeader;
-    if (isYellow && promoHeaderField && promoHeaderField.visible) {
-      const bannerH = promoHeaderField.height || 6;
-      doc.setFillColor(227, 27, 35);
-      doc.rect(x + promoHeaderField.x, y + promoHeaderField.y, promoHeaderField.width, bannerH, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(promoHeaderField.fontSizePt || 8);
-      const hText = (item.promoHeader || (activePreset as any).promoHeader || 'SPECIAL BUY').toUpperCase();
-      doc.text(hText, x + promoHeaderField.x + 2, y + promoHeaderField.y + bannerH * 0.72);
-      doc.text('PROMO TAG', x + promoHeaderField.x + promoHeaderField.width - 2, y + promoHeaderField.y + bannerH * 0.72, { align: 'right' });
-    }
+    // Field value extraction
+    const itemUpc = item.upc || item.barcode || item.sku || '';
+    const itemDesc = item.description || '';
+    const itemQty = item.qty != null ? String(item.qty) : '3';
+    const itemBuy = item.buy || 'BUY';
+    const itemUom = item.uom || 'PCS AND UP';
+    const itemPer = item.per || '/PC';
+    const itemSku = item.sku || itemUpc.slice(-6);
+    const itemDate = item.date || item.tagDate || getFormattedTodayDate();
 
-    // Render SKU Field
-    const skuField = fields?.sku;
-    if (skuField && skuField.visible) {
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', skuField.fontWeight === 'bold' ? 'bold' : 'normal');
-      doc.setFontSize(skuField.fontSizePt || 7.5);
-      const prefix = skuField.prefixText || 'SKU: ';
-      doc.text(`${prefix}${item.sku}`, x + skuField.x, y + skuField.y + skuField.height * 0.75);
-    }
+    let itemPrice = 0;
+    if (typeof item.price === 'number') itemPrice = item.price;
+    else if (typeof item.promoPrice === 'number' && item.promoPrice > 0) itemPrice = item.promoPrice;
+    else if (typeof item.regularPrice === 'number') itemPrice = item.regularPrice;
 
-    // Render Locator Field
-    const locatorField = fields?.locator;
-    if (locatorField && locatorField.visible && item.locator) {
-      const locX = x + locatorField.x;
-      const locY = y + locatorField.y;
-      if (locatorField.locatorBadge) {
-        if (isYellow) {
-          doc.setFillColor(0, 0, 0);
-          doc.roundedRect(locX, locY, locatorField.width, locatorField.height, 0.5, 0.5, 'F');
-          doc.setTextColor(255, 255, 255);
-        } else {
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(0.2);
-          doc.roundedRect(locX, locY, locatorField.width, locatorField.height, 0.5, 0.5, 'S');
-          doc.setTextColor(0, 0, 0);
-        }
-      } else {
+    // =========================================================================
+    // YELLOW TAG RENDERING (7 Dedicated Fields)
+    // =========================================================================
+    if (isYellow) {
+      // 1. UPC Field (bold text numbers, strictly NO barcode lines)
+      const upcField = fields?.upc || fields?.barcode;
+      if (upcField && upcField.visible !== false) {
         doc.setTextColor(0, 0, 0);
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(upcField.fontSizePt || 12);
+        const upcX = x + upcField.x + upcField.width;
+        const upcY = y + upcField.y + upcField.height * 0.8;
+        doc.text(itemUpc, upcX, upcY, { align: 'right' });
       }
-      doc.setFont('courier', 'bold');
-      doc.setFontSize(locatorField.fontSizePt || 7);
-      doc.text(item.locator, locX + locatorField.width / 2, locY + locatorField.height * 0.72, { align: 'center' });
-    }
 
-    // Render Description Field
-    const descField = fields?.description;
-    if (descField && descField.visible) {
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', descField.fontWeight === 'bold' ? 'bold' : 'normal');
-      doc.setFontSize(descField.fontSizePt || 9);
-
-      let textToPrint = item.description;
-      if (descField.textTransform === 'uppercase') textToPrint = textToPrint.toUpperCase();
-      else if (descField.textTransform === 'lowercase') textToPrint = textToPrint.toLowerCase();
-
-      const splitDesc = doc.splitTextToSize(textToPrint, descField.width);
-      const maxL = descField.maxLines || 2;
-      doc.text(splitDesc.slice(0, maxL), x + descField.x, y + descField.y + (descField.fontSizePt * 0.35));
-    }
-
-    // Render Barcode Field
-    const barcodeField = fields?.barcode;
-    if (barcodeField && barcodeField.visible) {
-      const codeVal = item.barcode || item.sku;
-      const bImg = getBarcode(codeVal, barcodeField.barcodeFormat, barcodeField.showBarcodeText !== false);
-      const bX = x + barcodeField.x;
-      const bY = y + barcodeField.y;
-      const bW = barcodeField.width;
-      const bH = barcodeField.height;
-
-      if (bImg) {
-        try {
-          doc.addImage(bImg, 'PNG', bX, bY, bW, bH);
-        } catch {
-          doc.setFont('courier', 'normal');
-          doc.setFontSize(6);
-          doc.text(codeVal, bX, bY + bH);
-        }
+      // 2. Description
+      const descField = fields?.description;
+      if (descField && descField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', descField.fontWeight === 'bold' ? 'bold' : 'normal');
+        doc.setFontSize(descField.fontSizePt || 9.5);
+        const splitDesc = doc.splitTextToSize(itemDesc.toUpperCase(), descField.width);
+        doc.text(splitDesc.slice(0, descField.maxLines || 2), x + descField.x, y + descField.y + (descField.fontSizePt * 0.35));
       }
-    }
 
-    // Render Regular Price Field
-    const regularField = fields?.regularPrice;
-    if (regularField && regularField.visible) {
-      const regX = x + regularField.x + regularField.width;
-      const regY = y + regularField.y + regularField.height * 0.75;
-      const isRed = isYellow || regularField.textColor === '#E31B23';
+      // 3. BUY
+      const buyField = fields?.buy;
+      if (buyField && buyField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(buyField.fontSizePt || 14);
+        doc.text(itemBuy, x + buyField.x, y + buyField.y + buyField.height * 0.8);
+      }
 
-      if (isRed) {
+      // 4. QTY
+      const qtyField = fields?.qty;
+      if (qtyField && qtyField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(qtyField.fontSizePt || 14);
+        doc.text(itemQty, x + qtyField.x, y + qtyField.y + qtyField.height * 0.8);
+      }
+
+      // 5. UOM
+      const uomField = fields?.uom;
+      if (uomField && uomField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(uomField.fontSizePt || 8.5);
+        doc.text(itemUom, x + uomField.x, y + uomField.y + uomField.height * 0.8);
+      }
+
+      // 6. Price (Aligned Piso sign with price digits)
+      const priceField = fields?.price || fields?.regularPrice;
+      if (priceField && priceField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(priceField.fontSizePt || 26);
+        const symStr = priceField.showCurrencySymbol !== false ? (priceField.currencySymbol || currency) : '';
+        const numStr = priceField.decimalPlaces === 0 ? Math.floor(itemPrice).toString() : itemPrice.toFixed(priceField.decimalPlaces ?? 2);
+        const fullPriceStr = symStr ? `${symStr} ${numStr}` : numStr;
+        const pX = x + priceField.x + priceField.width;
+        const pY = y + priceField.y + priceField.height * 0.85;
+        doc.text(fullPriceStr, pX, pY, { align: 'right' });
+      }
+
+      // 7. PER
+      const perField = fields?.per || fields?.priceUnit;
+      if (perField && perField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(perField.fontSizePt || 8.5);
+        doc.text(itemPer, x + perField.x, y + perField.y + perField.height * 0.8);
+      }
+    } else {
+      // =======================================================================
+      // WHITE TAG RENDERING (6 Dedicated Fields)
+      // =======================================================================
+      // 1. Description
+      const descField = fields?.description;
+      if (descField && descField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', descField.fontWeight === 'bold' ? 'bold' : 'normal');
+        doc.setFontSize(descField.fontSizePt || 8.5);
+        const splitDesc = doc.splitTextToSize(itemDesc.toUpperCase(), descField.width);
+        doc.text(splitDesc.slice(0, descField.maxLines || 2), x + descField.x, y + descField.y + (descField.fontSizePt * 0.35));
+      }
+
+      // 2. Date
+      const dateField = fields?.date || fields?.tagDate;
+      if (dateField && dateField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(dateField.fontSizePt || 7);
+        const align = (dateField.textAlign as any) || 'center';
+        const dX = align === 'center' ? x + dateField.x + (dateField.width / 2) : (align === 'left' ? x + dateField.x : x + dateField.x + dateField.width);
+        const dY = y + dateField.y + dateField.height * 0.75;
+        doc.text(itemDate, dX, dY, { align });
+      }
+
+      // 3. Price (Aligned Piso sign with price digits)
+      const priceField = fields?.price || fields?.regularPrice;
+      if (priceField && priceField.visible !== false) {
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(priceField.fontSizePt || 20);
+        const symStr = priceField.showCurrencySymbol !== false ? (priceField.currencySymbol || currency) : '';
+        const numStr = priceField.decimalPlaces === 0 ? Math.floor(itemPrice).toString() : itemPrice.toFixed(priceField.decimalPlaces ?? 2);
+        const fullPriceStr = symStr ? `${symStr} ${numStr}` : numStr;
+        const pX = x + priceField.x + priceField.width;
+        const pY = y + priceField.y + priceField.height * 0.82;
+        doc.text(fullPriceStr, pX, pY, { align: 'right' });
+      }
+
+      // 4. Logo
+      const logoField = fields?.logo;
+      if (logoField && logoField.visible !== false) {
         doc.setTextColor(227, 27, 35);
-      } else {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(logoField.fontSizePt || 8);
+        doc.text('PRINCE', x + logoField.x, y + logoField.y + logoField.height * 0.75);
+      }
+
+      // 5. Barcode (Scannable bars + UPC text)
+      const barcodeField = fields?.barcode;
+      if (barcodeField && barcodeField.visible !== false) {
+        const bImg = getBarcode(itemUpc, barcodeField.barcodeFormat || config.barcodeFormat || 'CODE128', barcodeField.showBarcodeText !== false);
+        const bX = x + barcodeField.x;
+        const bY = y + barcodeField.y;
+        const bW = barcodeField.width;
+        const bH = barcodeField.height;
+        if (bImg) {
+          try {
+            doc.addImage(bImg, 'PNG', bX, bY, bW, bH);
+          } catch {
+            doc.setFont('courier', 'normal');
+            doc.setFontSize(6);
+            doc.text(itemUpc, bX, bY + bH);
+          }
+        }
+      }
+
+      // 6. SKU
+      const skuField = fields?.sku;
+      if (skuField && skuField.visible !== false) {
         doc.setTextColor(0, 0, 0);
+        doc.setFont('courier', 'bold');
+        doc.setFontSize(skuField.fontSizePt || 8.5);
+        doc.text(itemSku, x + skuField.x, y + skuField.y + skuField.height * 0.75);
       }
-
-      doc.setFont('helvetica', regularField.fontWeight === 'bold' ? 'bold' : 'normal');
-      doc.setFontSize(regularField.fontSizePt || 8);
-
-      const symbolStr = regularField.showCurrencySymbol !== false ? (regularField.currencySymbol || currency) : '';
-      const prefixStr = regularField.prefixText ? `${regularField.prefixText} ` : '';
-      const valStr = regularField.decimalPlaces === 0
-        ? Math.round(item.regularPrice || 0).toString()
-        : (item.regularPrice ? item.regularPrice.toFixed(2) : '0.00');
-
-      const fullPriceStr = `${prefixStr}${symbolStr}${valStr}`;
-      doc.text(fullPriceStr, regX, regY, { align: 'right' });
-
-      // Strike-through line if configured
-      if (regularField.strikeThrough) {
-        const textW = doc.getTextWidth(fullPriceStr);
-        doc.setDrawColor(227, 27, 35);
-        doc.setLineWidth(0.25);
-        doc.line(regX - textW, regY - 0.7, regX, regY - 0.7);
-      }
-    }
-
-    // Render Promo Price Field
-    const promoField = fields?.promoPrice;
-    if (promoField && promoField.visible) {
-      const pX = x + promoField.x + promoField.width;
-      const pY = y + promoField.y + promoField.height * 0.8;
-
-      doc.setTextColor(227, 27, 35);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(promoField.fontSizePt || 14);
-
-      const symbolStr = promoField.showCurrencySymbol !== false ? `${promoField.currencySymbol || currency} ` : '';
-      const val = item.promoPrice != null ? item.promoPrice : item.regularPrice;
-      const valStr = promoField.decimalPlaces === 0
-        ? Math.round(val || 0).toString()
-        : (val ? val.toFixed(2) : '0.00');
-
-      doc.text(`${symbolStr}${valStr}`, pX, pY, { align: 'right' });
-    }
-
-    // Render Price Unit Field
-    const unitField = fields?.priceUnit;
-    if (unitField && unitField.visible) {
-      const uX = x + unitField.x + unitField.width;
-      const uY = y + unitField.y + unitField.height * 0.75;
-      doc.setTextColor(0, 0, 0);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(unitField.fontSizePt || 6.5);
-      const unitText = (item.unit || 'PER PC').toUpperCase();
-      doc.text(unitText, uX, uY, { align: 'right' });
-    }
-
-    // Tag Branding Footer: Powered by: DECStudioHub (30% opacity inside tag boundary)
-    try {
-      if (typeof (doc as any).GState === 'function') {
-        (doc as any).saveGraphicsState();
-        (doc as any).setGState(new (doc as any).GState({ opacity: 0.3 }));
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(4.5);
-        doc.setTextColor(0, 0, 0);
-        doc.text('Powered by: DECStudioHub', x + tagWidth - 1, y + tagHeight - 0.7, { align: 'right' });
-        (doc as any).restoreGraphicsState();
-      } else {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(4.5);
-        doc.setTextColor(179, 179, 179);
-        doc.text('Powered by: DECStudioHub', x + tagWidth - 1, y + tagHeight - 0.7, { align: 'right' });
-      }
-    } catch {
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(4.5);
-      doc.setTextColor(179, 179, 179);
-      doc.text('Powered by: DECStudioHub', x + tagWidth - 1, y + tagHeight - 0.7, { align: 'right' });
     }
   }
 
