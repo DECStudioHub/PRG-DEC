@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { InventoryItem, LayoutConfig } from '../types';
-import { generateBarcodeSvgString } from '../utils/barcode';
+import { generateBarcodeSvgString, generateLocatorBarcodeSvgString } from '../utils/barcode';
 import { DEFAULT_PRINCE_LOGO } from '../utils/theme';
 
 interface ShelfTagProps {
@@ -20,15 +20,50 @@ export const ShelfTag: React.FC<ShelfTagProps> = ({
 
   const barcodeSvg = useMemo(() => {
     const widthMm = Number(config.barcodeWidthMm) > 0 ? Number(config.barcodeWidthMm) : 42;
+    const showText = config.showBarcodeText !== false;
     return generateBarcodeSvgString(
       item.barcode || item.upcNo,
       config.barcodeType,
       Math.max(28, Math.round(config.barcodeHeightMm * 2.8)),
-      true,
+      showText,
       11,
       widthMm
     );
-  }, [item.barcode, item.upcNo, config.barcodeType, config.barcodeHeightMm, config.barcodeWidthMm]);
+  }, [
+    item.barcode,
+    item.upcNo,
+    config.barcodeType,
+    config.barcodeHeightMm,
+    config.barcodeWidthMm,
+    config.showBarcodeText,
+  ]);
+
+  const locatorBarcodeSvg = useMemo(() => {
+    if (config.locatorBarcodeEnabled === false) return '';
+    const locValue = String(item.locator || 'BA-A1-B21L').trim();
+    if (!locValue) return '';
+    const widthMm = Number(config.locatorBarcodeWidthMm) > 0 ? Number(config.locatorBarcodeWidthMm) : 42;
+    const heightMm = Number(config.locatorBarcodeHeightMm) > 0 ? Number(config.locatorBarcodeHeightMm) : 10;
+    const showText = config.showLocatorText !== false;
+    const fontSize = Math.max(7.5, Math.round((config.fontSizeLocator || 10.5) * 0.75));
+
+    return generateLocatorBarcodeSvgString(
+      locValue,
+      'CODE128',
+      heightMm,
+      1.5,
+      showText,
+      fontSize,
+      widthMm
+    );
+  }, [
+    item.locator,
+    config.locatorBarcodeEnabled,
+    config.locatorBarcodeWidthMm,
+    config.locatorBarcodeHeightMm,
+    config.showLocatorText,
+    config.fontSizeLocator,
+  ]);
 
   const isBlank = config.printBlankCountFields;
 
@@ -73,20 +108,52 @@ export const ShelfTag: React.FC<ShelfTagProps> = ({
         </>
       )}
 
-      {/* 1. Header: LOCATOR & LOGO (aligned on top) */}
+      {/* 1. Header: LOCATOR BARCODE & LOGO (aligned on top) */}
       <div
         className={`px-2 py-1 flex items-center justify-between border-b-2 border-black ${
           config.headerStyle === 'filled' ? 'bg-zinc-100' : 'bg-white'
         }`}
-        style={{ minHeight: `${Math.max(7.5, (config.logoHeightMm || 6.5) + 1.2) * scale}mm` }}
+        style={{
+          minHeight: `${
+            (config.locatorBarcodeEnabled !== false
+              ? Math.max(10, (config.locatorBarcodeHeightMm || 10) + 2.5, (config.logoHeightMm || 6.5) + 1.2)
+              : Math.max(7.5, (config.logoHeightMm || 6.5) + 1.2)
+            ) * scale
+          }mm`,
+        }}
       >
-        <div className="font-extrabold tracking-tight text-black flex items-center gap-1"
-             style={{ fontSize: `${config.fontSizeLocator * scale}px` }}>
-          <span className="font-black">Locator:</span>
-          <span className="font-mono bg-black text-white px-1.5 py-0.2 rounded-xs font-bold text-[0.95em]">
-            {item.locator || 'A00-00'}
-          </span>
-        </div>
+        {/* Left Side: Scanner-Readable Locator Barcode (or text fallback if disabled) */}
+        {config.locatorBarcodeEnabled !== false ? (
+          <div
+            className="flex items-center justify-start overflow-hidden"
+            style={{
+              width: `${(config.locatorBarcodeWidthMm ?? 42) * scale}mm`,
+              height: `${(config.locatorBarcodeHeightMm ?? 10) * scale}mm`,
+              maxWidth: '76%',
+            }}
+          >
+            {locatorBarcodeSvg ? (
+              <div
+                className="flex items-center justify-start w-full h-full [&>svg]:w-full [&>svg]:h-full [&>svg]:object-contain"
+                dangerouslySetInnerHTML={{ __html: locatorBarcodeSvg }}
+              />
+            ) : (
+              <div className="font-mono text-[10px] font-bold text-black border border-zinc-400 px-1 py-0.5">
+                {item.locator || 'BA-A1-B21L'}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            className="font-extrabold tracking-tight text-black flex items-center gap-1"
+            style={{ fontSize: `${config.fontSizeLocator * scale}px` }}
+          >
+            <span className="font-black">Locator:</span>
+            <span className="font-mono bg-black text-white px-1.5 py-0.2 rounded-xs font-bold text-[0.95em]">
+              {item.locator || 'A00-00'}
+            </span>
+          </div>
+        )}
 
         {/* Upper Right: Tag # & Prince Logo */}
         <div className="flex items-center gap-1.5 shrink-0">

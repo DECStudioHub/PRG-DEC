@@ -290,11 +290,11 @@ export const Step1Import: React.FC<Step1ImportProps> = ({
         <div className="flex items-center gap-2 mb-3">
           <FileSpreadsheet className="w-5 h-5 text-zinc-600" />
           <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wide">
-            Recommended Excel File Format & Columns
+            Recommended Excel File Format (4 Columns — v2.0.4)
           </h3>
         </div>
         <p className="text-xs text-zinc-500 mb-4">
-          The parser automatically detects standard and alias column names (case-insensitive):
+          The simplified PCOUNT W2W template requires only <strong>4 essential columns</strong>. Optional columns from legacy templates are also supported with full backward compatibility:
         </p>
 
         <div className="overflow-x-auto border border-zinc-200 rounded-lg">
@@ -302,65 +302,54 @@ export const Step1Import: React.FC<Step1ImportProps> = ({
             <thead className="bg-zinc-100 text-zinc-700 border-b border-zinc-200 font-bold">
               <tr>
                 <th className="px-3 py-2">Column</th>
+                <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Purpose</th>
                 <th className="px-3 py-2">Accepted Aliases</th>
                 <th className="px-3 py-2">Example Value</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 text-zinc-700">
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">LOCATOR</td>
-                <td className="px-3 py-2">Location / shelf / rack identifier</td>
+              <tr className="bg-blue-50/40">
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">LOCATOR</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-800 rounded">Required</span></td>
+                <td className="px-3 py-2 font-medium">Warehouse / Shelf / Bay Locator (renders barcode)</td>
                 <td className="px-3 py-2 text-zinc-500">Location, Shelf, Rack, Bin, Loc</td>
-                <td className="px-3 py-2 font-mono">A01-01</td>
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">BA-A1-B21L</td>
               </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">SKU</td>
-                <td className="px-3 py-2">Stock Keeping Unit (Unique item code)</td>
+              <tr className="bg-blue-50/40">
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">SKU</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-800 rounded">Required</span></td>
+                <td className="px-3 py-2 font-medium">Stock Keeping Unit (Unique item code)</td>
                 <td className="px-3 py-2 text-zinc-500">Item Code, Product Code, Part No</td>
-                <td className="px-3 py-2 font-mono">SKU001</td>
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">14177</td>
               </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">UPC NO</td>
-                <td className="px-3 py-2">UPC / EAN product code</td>
-                <td className="px-3 py-2 text-zinc-500">UPC, EAN, Barcode No</td>
-                <td className="px-3 py-2 font-mono">123456789012</td>
+              <tr className="bg-blue-50/40">
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">UPC</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-800 rounded">Required</span></td>
+                <td className="px-3 py-2 font-medium">UPC / EAN product code (used for item barcode)</td>
+                <td className="px-3 py-2 text-zinc-500">UPC NO, EAN, Barcode No, Barcode</td>
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">1428503045</td>
               </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">DESCRIPTION</td>
-                <td className="px-3 py-2">Product name or item description</td>
+              <tr className="bg-blue-50/40">
+                <td className="px-3 py-2 font-mono font-bold text-blue-900">DESCRIPTION</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-800 rounded">Required</span></td>
+                <td className="px-3 py-2 font-medium">Product name or item description</td>
                 <td className="px-3 py-2 text-zinc-500">Desc, Item Name, Title, Product</td>
-                <td className="px-3 py-2">Coca-Cola Classic 1.5L</td>
+                <td className="px-3 py-2 font-medium text-zinc-900">UFC BANANA CATSUP 1000G</td>
               </tr>
               <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">BARCODE</td>
-                <td className="px-3 py-2">Barcode value to be generated (Code 128 / UPC)</td>
-                <td className="px-3 py-2 text-zinc-500">Bar Code, Code</td>
-                <td className="px-3 py-2 font-mono">123456789012</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">COUNT</td>
-                <td className="px-3 py-2">Actual counted quantity (or left blank for physical sheet)</td>
+                <td className="px-3 py-2 font-mono font-medium text-zinc-600">COUNT</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 rounded">Optional</span></td>
+                <td className="px-3 py-2">Pre-counted quantity (default blank for physical counting)</td>
                 <td className="px-3 py-2 text-zinc-500">Qty, Quantity, Actual Count</td>
                 <td className="px-3 py-2 font-mono">25</td>
               </tr>
               <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">COUNTER</td>
-                <td className="px-3 py-2">Name / ID of person who counted</td>
-                <td className="px-3 py-2 text-zinc-500">Counted By, Counter Name</td>
-                <td className="px-3 py-2">Juan Santos</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">SCANNER</td>
-                <td className="px-3 py-2">Name / ID of person who scanned barcode</td>
-                <td className="px-3 py-2 text-zinc-500">Scanner Name, Scanned By</td>
-                <td className="px-3 py-2">Maria Ramos</td>
-              </tr>
-              <tr>
-                <td className="px-3 py-2 font-mono font-bold text-zinc-900">VALIDATOR</td>
-                <td className="px-3 py-2">Name / ID of validator / auditor</td>
-                <td className="px-3 py-2 text-zinc-500">Validated By, Checker, Auditor</td>
-                <td className="px-3 py-2">Pedro Reyes</td>
+                <td className="px-3 py-2 font-mono font-medium text-zinc-600">COUNTER / SCANNER / VALIDATOR</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-medium bg-zinc-100 text-zinc-600 rounded">Optional</span></td>
+                <td className="px-3 py-2">Personnel audit names / signatures</td>
+                <td className="px-3 py-2 text-zinc-500">Counted By, Auditor, Checker</td>
+                <td className="px-3 py-2 text-zinc-600">Carlos Dizon / Lito Cruz</td>
               </tr>
             </tbody>
           </table>

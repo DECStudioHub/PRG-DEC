@@ -1,6 +1,6 @@
 {
   "name": "PRG Shelftag & Barcode Generator",
-  "description": "DEC (Digital Efficiency & Continuity System) v2.0.3 — Generate printable barcode shelf tags, PP tags, and physical inventory count tags from Excel files with validation, customizable layouts, and PDF export.",
+  "description": "DEC (Digital Efficiency & Continuity System) v2.0.4 — Generate printable barcode shelf tags, PP tags, and physical inventory count tags from Excel files with validation, customizable layouts, and PDF export.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

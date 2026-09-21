@@ -44,15 +44,15 @@ export const Step3Configure: React.FC<Step3ConfigureProps> = ({
     return (
       selectedItems[0] || {
         id: 'preview-1',
-        locator: 'A01-01',
-        sku: 'SKU001',
-        upcNo: '123456789012',
-        description: 'Coca-Cola Classic 1.5L',
-        barcode: '123456789012',
+        locator: 'BA-A1-B21L',
+        sku: '14177',
+        upcNo: '1428503045',
+        description: 'UFC BANANA CATSUP 1000G',
+        barcode: '1428503045',
         count: 25,
-        counter: 'Juan Santos',
-        scanner: 'Maria Ramos',
-        validator: 'Pedro Reyes',
+        counter: 'Carlos Dizon',
+        scanner: 'Lito Cruz',
+        validator: 'Elena Cruz',
       }
     );
   }, [selectedItems]);
@@ -605,6 +605,37 @@ export const Step3Configure: React.FC<Step3ConfigureProps> = ({
               </div>
             </div>
 
+            {/* Show Human-Readable Barcode Text Toggle */}
+            <div className="mt-3.5 flex items-center justify-between p-3 bg-zinc-50 rounded-lg border border-zinc-200">
+              <div>
+                <span className="text-xs font-bold text-zinc-800 block">
+                  Show Human-Readable Text
+                </span>
+                <span className="text-[11px] text-zinc-500">
+                  Displays barcode/UPC numbers directly beneath the barcode bars (Default: ON)
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdateConfig({
+                    ...config,
+                    showBarcodeText: config.showBarcodeText === false ? true : false,
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                  config.showBarcodeText !== false ? 'bg-emerald-600' : 'bg-zinc-300'
+                }`}
+                title={config.showBarcodeText !== false ? 'Hide human-readable barcode numbers' : 'Show human-readable barcode numbers'}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    config.showBarcodeText !== false ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
             {/* Font sizes */}
             <div className="mt-4 pt-3 border-t border-zinc-100">
               <label className="block text-xs font-bold text-zinc-700 uppercase mb-2 flex items-center gap-1">
@@ -666,6 +697,212 @@ export const Step3Configure: React.FC<Step3ConfigureProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Section 3B: Locator Barcode Settings (v2.0.4) */}
+          <div className="bg-white rounded-xl border border-zinc-200 shadow-xs p-5">
+            <div className="flex items-center justify-between border-b border-zinc-100 pb-3 mb-4">
+              <div className="flex items-center gap-2">
+                <Barcode className="w-4 h-4 text-blue-600" />
+                <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wide">
+                  Locator Barcode Settings
+                </h3>
+              </div>
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                v2.0.4 Feature
+              </span>
+            </div>
+
+            <p className="text-xs text-zinc-500 mb-4">
+              Replaces the plain text locator in the Count Tag header with a scanner-readable optical barcode (CODE128). These controls adjust <strong>ONLY</strong> the Locator Barcode and are completely separate from the Item Barcode.
+            </p>
+
+            {/* Toggle: Enable Scanner-Readable Locator Barcode */}
+            <div className="flex items-center justify-between p-3 bg-zinc-50 rounded-lg border border-zinc-200 mb-4">
+              <div>
+                <span className="text-xs font-bold text-zinc-800 block">
+                  Locator Display Format
+                </span>
+                <span className="text-[11px] text-zinc-500">
+                  {config.locatorBarcodeEnabled !== false
+                    ? 'Scanner-readable barcode (CODE128) with quiet zones'
+                    : 'Plain text locator badge only'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdateConfig({
+                    ...config,
+                    locatorBarcodeEnabled: config.locatorBarcodeEnabled === false ? true : false,
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                  config.locatorBarcodeEnabled !== false ? 'bg-blue-600' : 'bg-zinc-300'
+                }`}
+                title={config.locatorBarcodeEnabled !== false ? 'Switch to plain text locator' : 'Switch to scanner-readable barcode'}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    config.locatorBarcodeEnabled !== false ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {config.locatorBarcodeEnabled !== false && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Locator Barcode Width */}
+                  <div className="bg-zinc-50 p-3.5 rounded-lg border border-zinc-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-800 block">
+                          Locator Barcode Width (mm)
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          Independent width in header (default: 42mm)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateConfig({
+                              ...config,
+                              locatorBarcodeWidthMm: Math.max(20, (config.locatorBarcodeWidthMm ?? 42) - 1),
+                            })
+                          }
+                          className="w-6 h-6 flex items-center justify-center rounded bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-bold cursor-pointer text-xs"
+                          title="Decrease Width"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-xs bg-white px-2 py-0.5 rounded border border-zinc-200 min-w-[48px] text-center text-zinc-900">
+                          {config.locatorBarcodeWidthMm ?? 42}mm
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateConfig({
+                              ...config,
+                              locatorBarcodeWidthMm: Math.min(70, (config.locatorBarcodeWidthMm ?? 42) + 1),
+                            })
+                          }
+                          className="w-6 h-6 flex items-center justify-center rounded bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-bold cursor-pointer text-xs"
+                          title="Increase Width"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="70"
+                      step="1"
+                      value={config.locatorBarcodeWidthMm ?? 42}
+                      onChange={(e) =>
+                        onUpdateConfig({
+                          ...config,
+                          locatorBarcodeWidthMm: Number(e.target.value),
+                        })
+                      }
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+                  </div>
+
+                  {/* Locator Barcode Height */}
+                  <div className="bg-zinc-50 p-3.5 rounded-lg border border-zinc-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="text-xs font-bold text-zinc-800 block">
+                          Locator Barcode Height (mm)
+                        </span>
+                        <span className="text-[11px] text-zinc-500">
+                          Vertical bar height (default: 10mm)
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateConfig({
+                              ...config,
+                              locatorBarcodeHeightMm: Math.max(6, (config.locatorBarcodeHeightMm ?? 10) - 1),
+                            })
+                          }
+                          className="w-6 h-6 flex items-center justify-center rounded bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-bold cursor-pointer text-xs"
+                          title="Decrease Height"
+                        >
+                          -
+                        </button>
+                        <span className="font-mono font-bold text-xs bg-white px-2 py-0.5 rounded border border-zinc-200 min-w-[48px] text-center text-zinc-900">
+                          {config.locatorBarcodeHeightMm ?? 10}mm
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onUpdateConfig({
+                              ...config,
+                              locatorBarcodeHeightMm: Math.min(20, (config.locatorBarcodeHeightMm ?? 10) + 1),
+                            })
+                          }
+                          className="w-6 h-6 flex items-center justify-center rounded bg-white border border-zinc-300 hover:bg-zinc-100 text-zinc-700 font-bold cursor-pointer text-xs"
+                          title="Increase Height"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min="6"
+                      max="20"
+                      step="1"
+                      value={config.locatorBarcodeHeightMm ?? 10}
+                      onChange={(e) =>
+                        onUpdateConfig({
+                          ...config,
+                          locatorBarcodeHeightMm: Number(e.target.value),
+                        })
+                      }
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+                  </div>
+                </div>
+
+                {/* Show Human-Readable Locator Text Toggle */}
+                <div className="flex items-center justify-between p-3.5 bg-zinc-50 rounded-lg border border-zinc-200">
+                  <div>
+                    <span className="text-xs font-bold text-zinc-800 block">
+                      Show Human-Readable Locator Text
+                    </span>
+                    <span className="text-[11px] text-zinc-500">
+                      Displays text (e.g. <code className="font-mono font-bold text-zinc-700">BA-A1-B21L</code>) beneath the barcode lines (Default: ON)
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onUpdateConfig({
+                        ...config,
+                        showLocatorText: config.showLocatorText === false ? true : false,
+                      })
+                    }
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                      config.showLocatorText !== false ? 'bg-blue-600' : 'bg-zinc-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        config.showLocatorText !== false ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Section 4: COUNT Box & Barcode Spacing Controls (Adjustable Box & Gap) */}

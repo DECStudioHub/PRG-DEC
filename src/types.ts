@@ -82,6 +82,12 @@ export interface LayoutConfig {
   countBoxFontSize?: number;
   countBoxBorderWidth?: number;
   barcodeWidthMm?: number;
+  showBarcodeText?: boolean;
+  // Locator Barcode Settings (v2.0.4)
+  locatorBarcodeEnabled?: boolean;
+  locatorBarcodeWidthMm?: number;
+  locatorBarcodeHeightMm?: number;
+  showLocatorText?: boolean;
 }
 
 export interface InventorySession {

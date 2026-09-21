@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { InventoryItem, LayoutConfig, InventorySession } from '../types';
-import { generateBarcodeDataUrl } from './barcode';
+import { generateBarcodeDataUrl, generateLocatorBarcodeDataUrl } from './barcode';
 import { packCountTagPages } from './countTagLayoutEngine';
 
 export interface GeneratePdfProgress {
@@ -171,8 +171,14 @@ async function renderSingleTagToPdf(
     doc.rect(x, y, w, h);
   }
 
-  // Header: LOCATOR
-  const headerHeight = Math.max(7.5, (config.logoHeightMm ? config.logoHeightMm + 1.2 : 0), h * 0.13);
+  // Header: LOCATOR BARCODE & LOGO
+  const isLocBarcodeEnabled = config.locatorBarcodeEnabled !== false;
+  const locBarcodeHeight = Number(config.locatorBarcodeHeightMm) > 0 ? Number(config.locatorBarcodeHeightMm) : 10;
+  const locBarcodeWidth = Number(config.locatorBarcodeWidthMm) > 0 ? Number(config.locatorBarcodeWidthMm) : 42;
+  const headerHeight = isLocBarcodeEnabled
+    ? Math.max(10, locBarcodeHeight + 2.5, Number(config.logoHeightMm) ? Number(config.logoHeightMm) + 1.2 : 0, h * 0.14)
+    : Math.max(7.5, Number(config.logoHeightMm) ? Number(config.logoHeightMm) + 1.2 : 0, h * 0.13);
+
   if (config.headerStyle === 'filled') {
     doc.setFillColor(235, 238, 242);
     doc.rect(x, y, w, headerHeight, 'F');
@@ -182,12 +188,6 @@ async function renderSingleTagToPdf(
   doc.setDrawColor(0, 0, 0);
   doc.setLineWidth(0.3);
   doc.line(x, y + headerHeight, x + w, y + headerHeight);
-
-  // Locator Text (Left side)
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(Math.max(8, Number(config.fontSizeLocator) || 11));
-  doc.setTextColor(0, 0, 0);
-  doc.text(`LOCATOR: ${item.locator || '---'}`, x + 3, y + headerHeight * 0.68);
 
   // Upper Right side: Tag # and Logo aligned with Locator
   let rightOffset = x + w - 2.5;
@@ -252,6 +252,48 @@ async function renderSingleTagToPdf(
     doc.setTextColor(110, 110, 110);
     const tagNumWidth = doc.getTextWidth(tagNumText);
     doc.text(tagNumText, rightOffset - tagNumWidth, y + headerHeight * 0.66);
+    rightOffset = rightOffset - tagNumWidth - 2;
+  }
+
+  // Left side: Scanner-Readable Locator Barcode (or text fallback if disabled)
+  if (isLocBarcodeEnabled) {
+    const locValue = String(item.locator || 'BA-A1-B21L').trim();
+    const showText = config.showLocatorText !== false;
+    const fontPt = Math.max(7, Math.round((Number(config.fontSizeLocator) || 10.5) * 0.75));
+    const locBarcodeUrl = generateLocatorBarcodeDataUrl(
+      locValue,
+      'CODE128',
+      Math.round(locBarcodeHeight * 3.78),
+      1.5,
+      showText,
+      fontPt,
+      locBarcodeWidth
+    );
+
+    if (locBarcodeUrl) {
+      const barcodeX = x + 2.5;
+      const barcodeY = y + (headerHeight - locBarcodeHeight) / 2;
+      const maxAvailableWidth = Math.max(20, rightOffset - barcodeX - 1);
+      const renderWidth = Math.min(locBarcodeWidth, maxAvailableWidth);
+      try {
+        doc.addImage(locBarcodeUrl, 'PNG', barcodeX, barcodeY, renderWidth, locBarcodeHeight);
+      } catch {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(Math.max(8, Number(config.fontSizeLocator) || 11));
+        doc.setTextColor(0, 0, 0);
+        doc.text(`LOCATOR: ${item.locator || '---'}`, x + 3, y + headerHeight * 0.68);
+      }
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(Math.max(8, Number(config.fontSizeLocator) || 11));
+      doc.setTextColor(0, 0, 0);
+      doc.text(`LOCATOR: ${item.locator || '---'}`, x + 3, y + headerHeight * 0.68);
+    }
+  } else {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(Math.max(8, Number(config.fontSizeLocator) || 11));
+    doc.setTextColor(0, 0, 0);
+    doc.text(`LOCATOR: ${item.locator || '---'}`, x + 3, y + headerHeight * 0.68);
   }
 
   // Middle content section: SKU, UPC, DESCRIPTION, BARCODE
@@ -314,15 +356,23 @@ async function renderSingleTagToPdf(
 
   const barcodeY = groupStartY;
   const barcodeValue = String(item.barcode || item.upcNo || item.sku || '00000000').trim();
+  const showBarcodeText = config.showBarcodeText !== false;
+  const requestedBcWidth = Number(config.barcodeWidthMm) > 0 ? Number(config.barcodeWidthMm) : 42;
   let barcodeDataUrl: string | null = null;
   try {
-    barcodeDataUrl = generateBarcodeDataUrl(barcodeValue, config.barcodeType, 42);
+    barcodeDataUrl = generateBarcodeDataUrl(
+      barcodeValue,
+      config.barcodeType,
+      42,
+      showBarcodeText,
+      11,
+      requestedBcWidth
+    );
   } catch (err) {
     console.warn('Barcode error:', err);
   }
 
   // Render Barcode
-  const requestedBcWidth = Number(config.barcodeWidthMm) > 0 ? Number(config.barcodeWidthMm) : 42;
   const barcodeWidth = Math.max(15, Math.min(w - 6, requestedBcWidth));
   const barcodeX = x + (w - barcodeWidth) / 2;
 

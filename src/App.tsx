@@ -63,6 +63,11 @@ const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
   countBoxFontSize: 13,
   countBoxBorderWidth: 2,
   barcodeWidthMm: 42,
+  showBarcodeText: true,
+  locatorBarcodeEnabled: true,
+  locatorBarcodeWidthMm: 42,
+  locatorBarcodeHeightMm: 10,
+  showLocatorText: true,
 };
 
 const DEFAULT_SESSION: InventorySession = {

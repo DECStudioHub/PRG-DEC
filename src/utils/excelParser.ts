@@ -4,22 +4,17 @@ import { InventoryItem, ValidationIssue, ValidationSummary } from '../types';
 export const REQUIRED_COLUMNS = [
   'LOCATOR',
   'SKU',
-  'UPC NO',
+  'UPC',
   'DESCRIPTION',
-  'BARCODE',
-  'COUNT',
-  'COUNTER',
-  'SCANNER',
-  'VALIDATOR',
 ] as const;
 
 // Column aliases for fuzzy matching
 const COLUMN_ALIASES: Record<string, string[]> = {
   locator: ['locator', 'location', 'shelf', 'rack', 'bin', 'loc', 'aisle'],
   sku: ['sku', 'item code', 'product code', 'item no', 'item_no', 'part no', 'sku code'],
-  upcNo: ['upc no', 'upc', 'ean', 'upc_no', 'upc code', 'barcode no', 'upc/ean'],
+  upcNo: ['upc', 'upc no', 'ean', 'upc_no', 'upc code', 'barcode no', 'upc/ean'],
   description: ['description', 'desc', 'item description', 'product name', 'item name', 'name', 'title'],
-  barcode: ['barcode', 'bar code', 'barcode value', 'upc', 'code'],
+  barcode: ['barcode', 'bar code', 'barcode value', 'code'],
   count: ['count', 'qty', 'quantity', 'actual count', 'physical count', 'counted qty', 'stock'],
   counter: ['counter', 'counted by', 'counter name', 'counted_by', 'counter id', 'auditor'],
   scanner: ['scanner', 'scanner name', 'scanned by', 'scanner personnel', 'scanner staff', 'scanner id', 'scanner status', 'scan status', 'scanner result', 'scan result'],
@@ -80,18 +75,21 @@ export function parseExcelFile(
     }
   });
 
-  // Check which standard required columns are missing
+  // Support both UPC and BARCODE interchangeability for backward compatibility
+  if (columnMap['upcNo'] === undefined && columnMap['barcode'] !== undefined) {
+    columnMap['upcNo'] = columnMap['barcode'];
+  }
+  if (columnMap['barcode'] === undefined && columnMap['upcNo'] !== undefined) {
+    columnMap['barcode'] = columnMap['upcNo'];
+  }
+
+  // Check which standard required columns are missing (v2.0.4 4-column simplified format)
   const missingColumns: string[] = [];
   const requiredFieldMap: Record<string, keyof InventoryItem> = {
     'LOCATOR': 'locator',
     'SKU': 'sku',
-    'UPC NO': 'upcNo',
+    'UPC': 'upcNo',
     'DESCRIPTION': 'description',
-    'BARCODE': 'barcode',
-    'COUNT': 'count',
-    'COUNTER': 'counter',
-    'SCANNER': 'scanner',
-    'VALIDATOR': 'validator',
   };
 
   for (const [reqName, fieldKey] of Object.entries(requiredFieldMap)) {
@@ -672,35 +670,30 @@ export const DEMO_ITEMS: InventoryItem[] = [
 export const SAMPLE_DEMO_ITEMS: InventoryItem[] = DEMO_ITEMS;
 
 export function downloadSampleExcelTemplate(): void {
-  const headers = ['LOCATOR', 'SKU', 'UPC NO', 'DESCRIPTION', 'BARCODE', 'COUNT', 'COUNTER', 'SCANNER', 'VALIDATOR'];
+  const headers = ['LOCATOR', 'SKU', 'UPC', 'DESCRIPTION'];
   const sampleData = [
     headers,
-    ['A01-01', 'SKU001', '123456789012', 'Coca-Cola Classic 1.5L', '123456789012', 25, 'Juan Santos', 'Maria Ramos', 'Pedro Reyes'],
-    ['A01-02', 'SKU002', '987654321098', 'Pepsi Cola 1.5L Bottle', '987654321098', 18, 'Juan Santos', 'Maria Ramos', 'Pedro Reyes'],
-    ['A01-03', 'SKU003', '456789123456', 'Sprite Lemon-Lime 1.5L', '456789123456', 32, 'Juan Santos', 'Maria Ramos', 'Pedro Reyes'],
-    ['A01-04', 'SKU004', '789123456789', 'Mountain Dew 1.5L', '789123456789', 14, 'Maria Gomez', 'Jose Perez', 'Pedro Reyes'],
-    ['A02-01', 'SKU005', '321654987321', 'Royal Tru-Orange 1.5L', '321654987321', 40, 'Maria Gomez', 'Jose Perez', 'Pedro Reyes'],
-    ['B01-01', 'SKU006', '480001664402', 'Lucky Me Pancit Canton 80g', '480001664402', 120, 'Carlos Dizon', 'Ana Lim', 'Elena Cruz'],
+    ['BA-A1-B21L', '14177', '1428503045', 'UFC BANANA CATSUP 1000G'],
+    ['BA-A1-B21L', '14178', '1428503046', 'SAMPLE ITEM'],
+    ['BA-A1-B22L', '14179', '1428503047', 'SAMPLE ITEM 2'],
+    ['BA-A1-B22L', '14180', '1428503048', 'COCA-COLA CLASSIC 1.5L'],
+    ['BA-A2-B01L', '14181', '1428503049', 'LUCKY ME PANCIT CANTON 80G'],
+    ['BA-A2-B02L', '14182', '1428503050', 'SAN MIGUEL PALE PILSEN 330ML'],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(sampleData);
 
   // Set column widths
   ws['!cols'] = [
-    { wch: 12 }, // LOCATOR
-    { wch: 12 }, // SKU
-    { wch: 16 }, // UPC NO
-    { wch: 32 }, // DESCRIPTION
-    { wch: 16 }, // BARCODE
-    { wch: 10 }, // COUNT
-    { wch: 16 }, // COUNTER
-    { wch: 12 }, // SCANNER
-    { wch: 16 }, // VALIDATOR
+    { wch: 16 }, // LOCATOR
+    { wch: 14 }, // SKU
+    { wch: 18 }, // UPC
+    { wch: 38 }, // DESCRIPTION
   ];
 
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Inventory Items');
-  XLSX.writeFile(wb, 'inventory_items_template.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'PCOUNT Template');
+  XLSX.writeFile(wb, 'pcount_w2w_template.xlsx');
 }
 
 export function exportInventoryToExcel(

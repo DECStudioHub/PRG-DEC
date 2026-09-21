@@ -116,10 +116,11 @@ export function generateBarcodeSvgString(
 export function generateLocatorBarcodeSvgString(
   value: string,
   type: BarcodeType = 'CODE128',
-  heightMm: number = 11,
+  heightMm: number = 10,
   widthScale: number = 1.5,
   displayValue: boolean = true,
-  fontSizePt: number = 8
+  fontSizePt: number = 8,
+  widthMm?: number
 ): string {
   if (!value || typeof document === 'undefined') return '';
 
@@ -128,49 +129,79 @@ export function generateLocatorBarcodeSvgString(
 
   const svgNode = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   // Convert mm to approximate SVG px height (3.78 px/mm)
-  const heightPx = Math.max(20, Math.round(heightMm * 3.78));
+  const totalHeightPx = Math.max(16, Math.round(heightMm * 3.78));
   const format = getJsBarcodeFormat(type);
+
+  // If displayValue is true, text occupies space; scale bars to fit totalHeightPx
+  const fontPx = Math.max(8, Math.round(fontSizePt * 1.33));
+  const barHeight = displayValue
+    ? Math.max(10, Math.round(totalHeightPx - fontPx - 6))
+    : Math.max(12, totalHeightPx - 4);
+
+  // Calculate narrow bar width based on widthMm if provided
+  let effectiveWidth = Math.max(1.0, Math.min(2.4, widthScale));
+  if (widthMm && widthMm > 0) {
+    const targetPx = widthMm * 3.78;
+    const estModules = Math.max(65, (cleanValue.length + 4) * 11 + 20);
+    effectiveWidth = Math.max(0.75, Math.min(2.4, (targetPx - 16) / estModules));
+  }
 
   try {
     JsBarcode(svgNode, cleanValue, {
       format: format,
       lineColor: '#000000',
-      width: Math.max(1.1, Math.min(2.4, widthScale)),
-      height: heightPx,
+      width: effectiveWidth,
+      height: barHeight,
       displayValue: displayValue,
-      fontSize: Math.max(8, Math.round(fontSizePt * 1.33)),
+      fontSize: fontPx,
       font: 'monospace',
-      margin: 4,
-      marginLeft: 10,
-      marginRight: 10,
-      marginTop: 2,
-      marginBottom: 2,
-      textMargin: 3,
+      margin: 2,
+      marginLeft: 6,
+      marginRight: 6,
+      marginTop: 1,
+      marginBottom: 1,
+      textMargin: 2,
       background: '#ffffff',
       valid: () => true,
     });
+
+    svgNode.setAttribute('width', '100%');
+    svgNode.setAttribute('height', '100%');
+    svgNode.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+    svgNode.style.display = 'block';
+    svgNode.style.maxWidth = '100%';
+    svgNode.style.maxHeight = '100%';
+
     return svgNode.outerHTML;
   } catch (err) {
     try {
       JsBarcode(svgNode, cleanValue, {
         format: 'CODE128',
         lineColor: '#000000',
-        width: Math.max(1.1, Math.min(2.4, widthScale)),
-        height: heightPx,
+        width: effectiveWidth,
+        height: barHeight,
         displayValue: displayValue,
-        fontSize: Math.max(8, Math.round(fontSizePt * 1.33)),
+        fontSize: fontPx,
         font: 'monospace',
-        margin: 4,
-        marginLeft: 10,
-        marginRight: 10,
-        marginTop: 2,
-        marginBottom: 2,
-        textMargin: 3,
+        margin: 2,
+        marginLeft: 6,
+        marginRight: 6,
+        marginTop: 1,
+        marginBottom: 1,
+        textMargin: 2,
         background: '#ffffff',
       });
+
+      svgNode.setAttribute('width', '100%');
+      svgNode.setAttribute('height', '100%');
+      svgNode.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+      svgNode.style.display = 'block';
+      svgNode.style.maxWidth = '100%';
+      svgNode.style.maxHeight = '100%';
+
       return svgNode.outerHTML;
     } catch {
-      return `<svg width="100%" height="${heightPx + 16}" viewBox="0 0 160 ${heightPx + 16}" xmlns="http://www.w3.org/2000/svg">
+      return `<svg width="100%" height="${totalHeightPx}" viewBox="0 0 160 ${totalHeightPx}" xmlns="http://www.w3.org/2000/svg">
         <rect width="100%" height="100%" fill="#ffffff"/>
         <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-size="10" font-family="monospace" fill="#000000">${cleanValue}</text>
       </svg>`;
@@ -184,21 +215,31 @@ export function generateLocatorBarcodeSvgString(
 export function generateBarcodeDataUrl(
   value: string,
   type: BarcodeType = 'CODE128',
-  height: number = 40
+  height: number = 40,
+  displayValue: boolean = true,
+  fontSize: number = 12,
+  widthMm?: number
 ): string | null {
   if (!value || typeof document === 'undefined') return null;
 
   const canvas = document.createElement('canvas');
   const format = getJsBarcodeFormat(type);
 
+  let calculatedWidth = 2;
+  if (widthMm && widthMm > 0) {
+    const targetPx = widthMm * 3.78;
+    const estModules = Math.max(70, (String(value).trim().length + 4) * 11 + 20);
+    calculatedWidth = Math.max(0.65, Math.min(2.8, targetPx / estModules));
+  }
+
   try {
     JsBarcode(canvas, String(value).trim(), {
       format: format,
       lineColor: '#000000',
-      width: 2,
+      width: calculatedWidth,
       height: height,
-      displayValue: true,
-      fontSize: 12,
+      displayValue: displayValue,
+      fontSize: fontSize,
       font: 'monospace',
       margin: 4,
       background: '#ffffff',
@@ -209,10 +250,10 @@ export function generateBarcodeDataUrl(
       JsBarcode(canvas, String(value).trim(), {
         format: 'CODE128',
         lineColor: '#000000',
-        width: 2,
+        width: calculatedWidth,
         height: height,
-        displayValue: true,
-        fontSize: 12,
+        displayValue: displayValue,
+        fontSize: fontSize,
         font: 'monospace',
         margin: 4,
         background: '#ffffff',
@@ -230,10 +271,11 @@ export function generateBarcodeDataUrl(
 export function generateLocatorBarcodeDataUrl(
   value: string,
   type: BarcodeType = 'CODE128',
-  heightPx: number = 44,
+  heightPx: number = 40,
   widthScale: number = 1.5,
   displayValue: boolean = true,
-  fontSizePt: number = 8
+  fontSizePt: number = 8,
+  widthMm?: number
 ): string | null {
   if (!value || typeof document === 'undefined') return null;
   const cleanVal = String(value).trim().toUpperCase();
@@ -242,21 +284,33 @@ export function generateLocatorBarcodeDataUrl(
   const canvas = document.createElement('canvas');
   const format = getJsBarcodeFormat(type);
 
+  const fontPx = Math.max(8, Math.round(fontSizePt * 1.33));
+  const effectiveBarHeight = displayValue
+    ? Math.max(12, Math.round(heightPx - fontPx - 6))
+    : Math.max(14, heightPx - 4);
+
+  let effectiveWidth = Math.max(1.0, Math.min(2.4, widthScale));
+  if (widthMm && widthMm > 0) {
+    const targetPx = widthMm * 3.78;
+    const estModules = Math.max(65, (cleanVal.length + 4) * 11 + 20);
+    effectiveWidth = Math.max(0.75, Math.min(2.4, (targetPx - 16) / estModules));
+  }
+
   try {
     JsBarcode(canvas, cleanVal, {
       format: format,
       lineColor: '#000000',
-      width: Math.max(1.1, Math.min(2.4, widthScale)),
-      height: Math.max(24, heightPx),
+      width: effectiveWidth,
+      height: effectiveBarHeight,
       displayValue: displayValue,
-      fontSize: Math.max(8, Math.round(fontSizePt * 1.33)),
+      fontSize: fontPx,
       font: 'monospace',
-      margin: 4,
-      marginLeft: 12,
-      marginRight: 12,
-      marginTop: 2,
-      marginBottom: 2,
-      textMargin: 3,
+      margin: 2,
+      marginLeft: 8,
+      marginRight: 8,
+      marginTop: 1,
+      marginBottom: 1,
+      textMargin: 2,
       background: '#ffffff',
     });
     return canvas.toDataURL('image/png');
@@ -265,17 +319,17 @@ export function generateLocatorBarcodeDataUrl(
       JsBarcode(canvas, cleanVal, {
         format: 'CODE128',
         lineColor: '#000000',
-        width: Math.max(1.1, Math.min(2.4, widthScale)),
-        height: Math.max(24, heightPx),
+        width: effectiveWidth,
+        height: effectiveBarHeight,
         displayValue: displayValue,
-        fontSize: Math.max(8, Math.round(fontSizePt * 1.33)),
+        fontSize: fontPx,
         font: 'monospace',
-        margin: 4,
-        marginLeft: 12,
-        marginRight: 12,
-        marginTop: 2,
-        marginBottom: 2,
-        textMargin: 3,
+        margin: 2,
+        marginLeft: 8,
+        marginRight: 8,
+        marginTop: 1,
+        marginBottom: 1,
+        textMargin: 2,
         background: '#ffffff',
       });
       return canvas.toDataURL('image/png');

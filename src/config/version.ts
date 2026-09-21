@@ -33,6 +33,33 @@ export const SYSTEM_SUBTITLE = 'Backup • Continuity • Alternative Process �
 
 export const DEC_RELEASES: SystemRelease[] = [
   {
+    version: '2.0.4',
+    releaseDate: 'September 21, 2026',
+    releaseType: 'minor',
+    title: 'PCOUNT W2W Scanner-Readable Locator Barcode & Simplified 4-Column Template',
+    summary:
+      'Official DEC v2.0.4 release upgrading PCOUNT W2W Count Tags with scanner-readable optical Locator Barcodes (Code 128), independent Locator Barcode width and height layout controls, human-readable locator text toggle, optical quiet zones, and a simplified 4-column Excel import template (LOCATOR, SKU, UPC, DESCRIPTION).',
+    highlights: [
+      'Implemented scanner-readable optical Locator Barcode (Code 128) replacing plain text badges in Count Tag headers.',
+      'Added independent Locator Barcode width (mm) and height (mm) configuration controls with quick +/- adjusters in Step 3.',
+      'Added Show Human-Readable Locator Text toggle (Default: ON) displaying locator text directly beneath the barcode lines.',
+      'Added Show Human-Readable Text toggle (Default: ON) for Item Barcode numbers in Step 3 Barcode Format & Font Sizes.',
+      'Maintained 100% full visual parity across live configuration preview, layout preview, browser print, and vector PDF.',
+      'Simplified downloadable sample Excel template to exactly four fields: LOCATOR, SKU, UPC, and DESCRIPTION.',
+      'Enhanced Excel parser to seamlessly accept the simplified 4-column format with full backward compatibility for legacy columns.',
+      'Protected Module 1 and Module 2 core workflows and existing features with zero breaking changes.',
+    ],
+    changes: [
+      { type: 'feature', text: 'Scanner-readable Locator Barcode (Code 128) for PCOUNT W2W Count Tags' },
+      { type: 'feature', text: 'Independent Locator Barcode width (mm) and height (mm) controls' },
+      { type: 'feature', text: 'Show Human-Readable Locator Text toggle (Default: ON)' },
+      { type: 'feature', text: 'Show Human-Readable Text toggle (Default: ON) for main item barcode' },
+      { type: 'improvement', text: 'Simplified downloadable Excel template to 4 fields: LOCATOR, SKU, UPC, DESCRIPTION' },
+      { type: 'improvement', text: 'Backward compatible import parser for both new 4-column and legacy schemas' },
+      { type: 'improvement', text: 'Optical quiet zones and balanced tag header integration for handheld scanners' },
+    ],
+  },
+  {
     version: '2.0.3',
     releaseDate: 'September 15, 2026',
     releaseType: 'minor',
