@@ -14,6 +14,8 @@ import {
   HelpCircle,
   Database,
   Users,
+  Award,
+  FilePlus2,
 } from 'lucide-react';
 import { AppStep, InventorySession, SystemSettings, AppModuleId } from '../types';
 import { getPaletteTheme, DEFAULT_PRINCE_LOGO, PRINCE_LOGO_INLINE_SVG, getEffectiveLogoUrl } from '../utils/theme';
@@ -98,11 +100,11 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-black text-base sm:text-lg tracking-tight text-zinc-900 group-hover:text-black">
+                <span className="font-black text-base sm:text-lg tracking-tight text-zinc-900 group-hover:text-black whitespace-nowrap">
                   {settings.systemName || 'DEC'}
                 </span>
                 <span
-                  className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-sm border transition-colors hidden sm:inline-block"
+                  className="text-[10px] sm:text-[11px] font-bold px-2 py-0.5 rounded-sm border transition-colors hidden xl:inline-block whitespace-nowrap"
                   style={{
                     backgroundColor: activeTheme.primaryLight,
                     borderColor: activeTheme.primaryBorder,
@@ -112,7 +114,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   {settings.systemTagline || 'Digital Efficiency & Continuity System'}
                 </span>
               </div>
-              <p className="text-[11px] text-zinc-500 font-medium truncate max-w-[240px] sm:max-w-none">
+              <p className="text-[11px] text-zinc-500 font-medium truncate max-w-[240px] sm:max-w-none hidden 2xl:block">
                 {settings.systemSubtitle || 'Backup • Continuity • Alternative Process • Process Improvement'}
               </p>
             </div>
@@ -147,10 +149,10 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
           </div>
 
-          {/* Right Actions */}
-          <div className="flex items-center gap-2">
+          {/* Right Actions: System Tools & Workspace Actions */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 flex-nowrap">
             {itemCount > 0 && (
-              <div className="hidden lg:flex items-center gap-2 text-xs bg-zinc-100/80 px-2.5 py-1.5 rounded-lg border border-zinc-200">
+              <div className="hidden 2xl:flex items-center gap-2 h-8 text-xs bg-zinc-100/80 px-2.5 rounded-lg border border-zinc-200 whitespace-nowrap shrink-0">
                 <span className="text-zinc-500 font-medium">Data:</span>
                 <span className="font-mono font-bold text-zinc-900">
                   {selectedCount} / {itemCount} items
@@ -169,10 +171,10 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={onOpenBackup}
                 title="System Backup & Restore (JSON)"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors border border-zinc-200 cursor-pointer shadow-2xs"
+                className="h-8 inline-flex items-center gap-1.5 px-2.5 text-xs font-semibold text-zinc-700 hover:text-zinc-950 bg-white hover:bg-zinc-50 rounded-lg transition-colors border border-zinc-200 hover:border-zinc-300 cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
               >
-                <Database className="w-3.5 h-3.5 text-emerald-700" />
-                <span className="hidden sm:inline">Backup</span>
+                <Database className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span className="hidden md:inline">Backup</span>
               </button>
             )}
 
@@ -181,35 +183,39 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               onClick={() => onSelectStep('settings')}
               title="Open System Settings & Customization"
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border shadow-2xs ${
+              className={`h-8 inline-flex items-center gap-1.5 px-2.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer border shadow-2xs whitespace-nowrap shrink-0 ${
                 currentStep === 'settings'
                   ? 'text-white border-transparent'
-                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 border-zinc-200'
+                  : 'text-zinc-700 hover:text-zinc-950 bg-white hover:bg-zinc-50 border-zinc-200 hover:border-zinc-300'
               }`}
               style={{
-                backgroundColor: currentStep === 'settings' ? activeTheme.primary : 'transparent',
+                backgroundColor: currentStep === 'settings' ? activeTheme.primary : undefined,
               }}
             >
-              <Settings className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Settings</span>
+              <Settings className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden md:inline">Settings</span>
             </button>
 
             {/* Interactive System Version Badge & Popover */}
             <VersionBadge onOpenCredits={onOpenCredits} />
 
-            {/* 👥 Credit & Contribution Tab / Icon Button */}
+            {/* 🏆 Credit & Contribution Tab / Icon Button */}
             {onOpenCredits && (
               <button
                 type="button"
                 onClick={onOpenCredits}
                 title="Credit & Contribution — Contributor Recognition & Suggestions"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none border border-zinc-200 hover:border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 hover:text-zinc-950 shadow-2xs"
+                className="h-8 inline-flex items-center gap-1.5 px-2.5 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none border border-amber-200/90 hover:border-amber-300 bg-amber-50/70 hover:bg-amber-100/80 text-amber-900 hover:text-amber-950 shadow-2xs whitespace-nowrap shrink-0"
               >
-                <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                <span className="hidden sm:inline">Credit & Contribution</span>
+                <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="hidden 2xl:inline">Credit & Contribution</span>
+                <span className="hidden sm:inline 2xl:hidden">Credits</span>
                 <span className="sm:hidden">Credits</span>
               </button>
             )}
+
+            {/* Subtle Divider between System Tools and Workspace Actions */}
+            <div className="h-4 w-px bg-zinc-200 mx-0.5 hidden sm:block shrink-0" />
 
             {/* Welcome / Guide Help Button */}
             {onOpenWelcome && (
@@ -217,32 +223,34 @@ export const Navbar: React.FC<NavbarProps> = ({
                 type="button"
                 onClick={onOpenWelcome}
                 title="Open System Quick Guide & Overview"
-                className="inline-flex items-center justify-center p-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors border border-transparent hover:border-zinc-200 cursor-pointer"
+                className="h-8 w-8 inline-flex items-center justify-center text-xs font-semibold text-zinc-500 hover:text-zinc-900 bg-white hover:bg-zinc-50 rounded-lg transition-colors border border-zinc-200 hover:border-zinc-300 cursor-pointer shadow-2xs shrink-0"
               >
-                <HelpCircle className="w-4 h-4 text-zinc-500" />
+                <HelpCircle className="w-3.5 h-3.5" />
               </button>
             )}
 
+            {/* New File / Reset Excel Button */}
             {itemCount > 0 && (
               <button
                 type="button"
                 onClick={onReset}
-                title="Start over with a new Excel file"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors border border-transparent hover:border-zinc-300 cursor-pointer"
+                title="Start over with a new Excel file (Reset data)"
+                className="h-8 inline-flex items-center gap-1.5 px-2.5 text-xs font-semibold text-zinc-700 hover:text-zinc-950 bg-white hover:bg-zinc-50 rounded-lg transition-colors border border-zinc-200 hover:border-zinc-300 cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
               >
-                <RotateCcw className="w-3.5 h-3.5" />
+                <FilePlus2 className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                 <span className="hidden sm:inline">New File</span>
               </button>
             )}
 
+            {/* Open in New Browser Tab */}
             <a
               href={typeof window !== 'undefined' ? window.location.href : '#'}
               target="_blank"
               rel="noopener noreferrer"
               title="Open full app in a new browser tab (recommended for printing and downloading)"
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors border border-transparent hover:border-zinc-300 cursor-pointer"
+              className="h-8 inline-flex items-center gap-1.5 px-2.5 text-xs font-semibold text-zinc-700 hover:text-zinc-950 bg-white hover:bg-zinc-50 rounded-lg transition-colors border border-zinc-200 hover:border-zinc-300 cursor-pointer shadow-2xs whitespace-nowrap shrink-0"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
+              <ExternalLink className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
               <span className="hidden sm:inline">New Tab</span>
             </a>
           </div>
@@ -278,7 +286,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         {activeModule === 'count_tag' && currentStep !== 'settings' && (
           <div className="py-2.5 border-t border-zinc-100 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-extrabold text-zinc-400 uppercase tracking-wider">
+              <span className="text-[11px] font-extrabold text-zinc-400 uppercase tracking-wider hidden sm:inline whitespace-nowrap">
                 Count Tag Workflow:
               </span>
             </div>

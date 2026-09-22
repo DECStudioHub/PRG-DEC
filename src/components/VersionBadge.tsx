@@ -108,17 +108,17 @@ export const VersionBadge: React.FC<VersionBadgeProps> = ({
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         title={`${DISPLAY_VERSION} — Click or hover to view update history`}
-        className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer select-none border ${
+        className={`h-8 inline-flex items-center gap-1.5 px-2.5 text-xs font-mono font-bold rounded-lg transition-all cursor-pointer select-none border whitespace-nowrap shrink-0 ${
           isOpen
             ? 'bg-zinc-900 text-white border-zinc-900 shadow-sm'
             : 'bg-zinc-50 hover:bg-zinc-100 text-zinc-700 hover:text-zinc-950 border-zinc-200 hover:border-zinc-300 shadow-2xs'
         }`}
       >
-        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="hidden sm:inline">{DISPLAY_VERSION}</span>
-        <span className="sm:hidden">{SHORT_VERSION}</span>
+        <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+        <span className="hidden xl:inline">{DISPLAY_VERSION}</span>
+        <span className="xl:hidden">{SHORT_VERSION}</span>
         <ChevronDown
-          className={`w-3 h-3 text-zinc-400 transition-transform duration-200 ${
+          className={`w-3 h-3 text-zinc-400 transition-transform duration-200 shrink-0 ${
             isOpen ? 'rotate-180 text-zinc-200' : ''
           }`}
         />
