@@ -1,5 +1,6 @@
 import { InventoryItem } from '../types';
 import { groupItemsByLocator, sortInventoryItemsForCountSheet } from './countSheetLayoutEngine';
+import { normalizeCopyCount } from './shelftagExpansion';
 
 export interface CountTagPage {
   pageNumber: number;
@@ -15,31 +16,26 @@ export interface PackCountTagsOptions {
 }
 
 /**
- * Intelligent Count Tag Sorting and Paper-Saving Packing Engine.
+ * DEC v2.0.5 Intelligent Count Tag Page Optimization & Paper-Saving Engine
+ * Suggested by: Diodito De Los Santos Jr.
  * 
- * Rules:
- * 1. Filter out unselected items (isSelected !== false).
- * 2. Filter by selectedLocators if specified.
- * 3. Group items by LOCATOR (natural alphanumeric order, UNASSIGNED last).
- * 4. Within each LOCATOR group:
- *    Sort by DESCRIPTION -> A to Z (case-insensitive natural sort).
- * 5. Separate locator groups into:
- *    - LARGE LOCATOR GROUPS: groups containing >= 3 SKUs
- *    - SMALL LOCATOR GROUPS: groups containing 1 or 2 SKUs
- * 6. Process LARGE LOCATOR GROUPS:
- *    - Priority: keep that locator together and preserve its strict A-Z sequence.
- *    - Chunk into pages of size capacity (e.g. 9 tags per page).
- *    - Do not disrupt the locator's sequence or unnecessarily mix other locators into these pages.
- * 7. Process SMALL LOCATOR GROUPS:
- *    - Each 1-SKU or 2-SKU group is treated as an INDIVISIBLE unit (do NOT split a 2-SKU locator across pages).
- *    - Intelligently combine small locator groups to fill pages up to capacity (9 tags).
- *    - Efficient bin packing:
- *      * Fill up to capacity without splitting any small locator group.
- *      * If a page has remaining capacity (e.g. 1 slot) and the immediate next group is size 2,
- *        look ahead for a size 1 group to fill the page to capacity (9 tags).
- *      * If no lookahead group can fit, close the page and start a new page.
- * 8. Never duplicate or lose any item.
- * 9. Every Count Tag retains its original LOCATOR and raw item properties.
+ * Objective: MAXIMIZE AND SAVE BOND PAPER
+ * Fills every page with up to 9 physical Count Tags per page (or configured capacity),
+ * utilizing remaining space with Count Tags from the next sequential Locator when necessary.
+ * 
+ * Pipeline:
+ * 1. Filter active selected items (isSelected !== false).
+ * 2. Apply Locator Filter (if selectedLocators specified).
+ * 3. Group items by Locator (natural alphanumeric sort order, UNASSIGNED last).
+ * 4. Sort Description A to Z within each Locator.
+ * 5. Apply COPIES: expand each SKU into its physical Count Tag instances.
+ * 6. Flatten into ordered stream of physical Count Tag instances:
+ *    - Sequential by Locator
+ *    - Sequential by Description A-Z within each Locator
+ *    - Sequential copies for each SKU
+ * 7. Pack sequentially up to capacity (e.g. 9 physical Count Tags per page).
+ * 8. Every individual Count Tag retains its correct Locator, Barcode, SKU, UPC, Description, etc.
+ * 9. Mixed locators on a page are properly flagged with isMixedLocators and listed in locators array.
  */
 export function packCountTagPages(
   items: InventoryItem[],
@@ -56,7 +52,7 @@ export function packCountTagPages(
   // 1. Filter active selected items
   let activeItems = items.filter(it => it.isSelected !== false);
 
-  // Optional locator filtering
+  // 2. Optional locator filtering
   if (selectedLocators && selectedLocators !== 'ALL') {
     const locSet = new Set(
       (Array.isArray(selectedLocators) ? selectedLocators : [selectedLocators]).map(l =>
@@ -73,91 +69,50 @@ export function packCountTagPages(
     return [];
   }
 
-  // 2. Group items by locator (sorted natural alphabetically, UNASSIGNED last)
+  // 3. Group items by locator (sorted natural alphabetically, UNASSIGNED last)
   const grouped = groupItemsByLocator(activeItems);
 
-  // 3. Sort items inside each locator by DESCRIPTION A to Z
-  const sortedGrouped: Record<string, InventoryItem[]> = {};
+  // 4. Sort items inside each locator by DESCRIPTION A to Z, then expand COPIES into physical tag instances
+  const physicalInstances: InventoryItem[] = [];
+
   for (const loc of Object.keys(grouped)) {
-    sortedGrouped[loc] = sortInventoryItemsForCountSheet(grouped[loc], 'description', 'asc');
-  }
+    const sortedGroup = sortInventoryItemsForCountSheet(grouped[loc], 'description', 'asc');
 
-  // 4. Separate into Large (>= 3 SKUs) and Small (1 or 2 SKUs)
-  const largeGroups: { locator: string; items: InventoryItem[] }[] = [];
-  const smallGroups: { locator: string; items: InventoryItem[] }[] = [];
-
-  for (const loc of Object.keys(sortedGrouped)) {
-    const groupItems = sortedGrouped[loc];
-    if (groupItems.length >= 3) {
-      largeGroups.push({ locator: loc, items: groupItems });
-    } else if (groupItems.length > 0) {
-      smallGroups.push({ locator: loc, items: groupItems });
+    // Apply COPIES for each SKU to create physical Count Tag instances
+    for (const item of sortedGroup) {
+      const copyCount = normalizeCopyCount(item.copies);
+      for (let c = 0; c < copyCount; c++) {
+        physicalInstances.push({
+          ...item,
+          // Suffix clone IDs to ensure React keys and DOM anchors remain strictly unique
+          id: c === 0 ? item.id : `${item.id}-copy-${c + 1}`,
+        });
+      }
     }
   }
 
+  if (physicalInstances.length === 0) {
+    return [];
+  }
+
+  // 5. Pack sequentially into pages up to capacity (e.g. 9 Count Tags per page)
+  // Maximizes Bond Paper: fills available slots before starting a new page
   const pages: CountTagPage[] = [];
   let pageCounter = 1;
 
-  // 5. Process Large Groups
-  for (const group of largeGroups) {
-    const totalItems = group.items.length;
-    for (let i = 0; i < totalItems; i += capacity) {
-      const pageItems = group.items.slice(i, i + capacity);
-      pages.push({
-        pageNumber: pageCounter++,
-        items: pageItems,
-        locators: [group.locator],
-        isMixedLocators: false,
-        totalTags: pageItems.length,
-      });
-    }
-  }
+  for (let i = 0; i < physicalInstances.length; i += capacity) {
+    const pageItems = physicalInstances.slice(i, i + capacity);
+    const distinctLocators = Array.from(
+      new Set(pageItems.map(it => (it.locator && String(it.locator).trim()) || 'UNASSIGNED'))
+    );
 
-  // 6. Process Small Groups with Paper-Saving Packing
-  // Small groups must remain indivisible: size is either 1 or 2 items.
-  const remainingSmall = [...smallGroups];
-
-  while (remainingSmall.length > 0) {
-    const currentPageItems: InventoryItem[] = [];
-    const pageLocators: string[] = [];
-    let remainingSpace = capacity;
-
-    while (remainingSmall.length > 0) {
-      // 1. Check if the next sequential group fits
-      if (remainingSmall[0].items.length <= remainingSpace) {
-        const group = remainingSmall.shift()!;
-        currentPageItems.push(...group.items);
-        pageLocators.push(group.locator);
-        remainingSpace -= group.items.length;
-      } else {
-        // The first group (e.g. size 2) doesn't fit into remainingSpace (e.g. 1).
-        // Look ahead for a smaller group (e.g. size 1) that fits within remainingSpace
-        const fitIdx = remainingSmall.findIndex(g => g.items.length <= remainingSpace);
-        if (fitIdx !== -1) {
-          const [group] = remainingSmall.splice(fitIdx, 1);
-          currentPageItems.push(...group.items);
-          pageLocators.push(group.locator);
-          remainingSpace -= group.items.length;
-        } else {
-          // No remaining small group can fit in this page
-          break;
-        }
-      }
-
-      if (remainingSpace <= 0) {
-        break;
-      }
-    }
-
-    if (currentPageItems.length > 0) {
-      pages.push({
-        pageNumber: pageCounter++,
-        items: currentPageItems,
-        locators: Array.from(new Set(pageLocators)),
-        isMixedLocators: pageLocators.length > 1,
-        totalTags: currentPageItems.length,
-      });
-    }
+    pages.push({
+      pageNumber: pageCounter++,
+      items: pageItems,
+      locators: distinctLocators,
+      isMixedLocators: distinctLocators.length > 1,
+      totalTags: pageItems.length,
+    });
   }
 
   return pages;

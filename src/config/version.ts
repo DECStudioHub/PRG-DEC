@@ -17,6 +17,13 @@ export interface ReleaseChangeItem {
   text: string;
 }
 
+export interface FeatureCredit {
+  feature: string;
+  description?: string;
+  suggestedBy: string;
+  purpose?: string;
+}
+
 export interface SystemRelease {
   version: string;
   releaseDate: string;
@@ -25,6 +32,7 @@ export interface SystemRelease {
   summary: string;
   highlights: string[];
   changes?: ReleaseChangeItem[];
+  credit?: FeatureCredit;
 }
 
 export const SYSTEM_PREFIX = 'DEC';
@@ -32,6 +40,36 @@ export const SYSTEM_FULL_NAME = 'Digital Efficiency & Continuity System';
 export const SYSTEM_SUBTITLE = 'Backup • Continuity • Alternative Process • Process Improvement';
 
 export const DEC_RELEASES: SystemRelease[] = [
+  {
+    version: '2.0.5',
+    releaseDate: 'September 22, 2026',
+    releaseType: 'minor',
+    title: 'Count Tag Page Optimization (9 Count Tags / Page) & Bond Paper Saving',
+    summary:
+      'DEC v2.0.5 introduces intelligent Count Tag page packing optimization to maximize bond paper utilization by filling up to 9 physical Count Tags per page, utilizing remaining space with Count Tags from the next Locator when necessary, and honoring expanded tag quantities after COPIES are applied.',
+    highlights: [
+      'Optimized Count Tag printing to maximize the use of available Bond Paper by packing up to 9 physical Count Tags per page.',
+      'Count Tags now populate up to 9 tags per page across pages, utilizing remaining space with Count Tags from the next sequential Locator when required.',
+      'Preserves Locator grouping integrity and A-to-Z item Description sorting within each Locator.',
+      'Seamlessly supports the COPIES field: pagination accurately utilizes the physical Count Tag instances after copies expansion.',
+      'Maintains 100% visual and structural parity across Preview, Browser Print, and Vector PDF generation.',
+      'Maintains individual tag Locators, barcodes, SKUs, UPCs, and descriptions without disruption.',
+      'Introduced feature credit acknowledgment system for user-suggested enhancements.',
+    ],
+    changes: [
+      { type: 'feature', text: '9 Count Tags Per Page Print Optimization maximizing bond paper usage' },
+      { type: 'improvement', text: 'Consecutive locator filling: remaining page slots populated from next sequential locator' },
+      { type: 'improvement', text: 'Full integration with physical COPIES expansion and locator filtering' },
+      { type: 'improvement', text: 'Unified pagination engine across Preview, Standalone Print, and Vector PDF' },
+    ],
+    credit: {
+      feature: '9 Count Tags Per Page Print Optimization',
+      purpose: 'Maximize Bond Paper usage by filling up to 9 Count Tags per page.',
+      description:
+        'Optimized Count Tag pagination to use available Bond Paper space more efficiently by filling up to 9 physical Count Tags per page, including remaining space with Count Tags from the next Locator when required.',
+      suggestedBy: 'Diodito De Los Santos Jr.',
+    },
+  },
   {
     version: '2.0.4',
     releaseDate: 'September 21, 2026',
@@ -58,6 +96,12 @@ export const DEC_RELEASES: SystemRelease[] = [
       { type: 'improvement', text: 'Backward compatible import parser for both new 4-column and legacy schemas' },
       { type: 'improvement', text: 'Optical quiet zones and balanced tag header integration for handheld scanners' },
     ],
+    credit: {
+      feature: 'Conversion of Count Tag Locator Label from text to barcode lines',
+      description:
+        'Converted the Count Tag Locator Label from plain text to a scanner-readable Locator Barcode with configurable human-readable text, dimensions, and barcode settings.',
+      suggestedBy: 'John Lord Sarte',
+    },
   },
   {
     version: '2.0.3',

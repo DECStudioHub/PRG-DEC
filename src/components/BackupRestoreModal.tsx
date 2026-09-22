@@ -106,6 +106,9 @@ export const BackupRestoreModal: React.FC<BackupRestoreModalProps> = ({
       if (data.activeModule) {
         localStorage.setItem('inv_active_module', data.activeModule);
       }
+      if (data.contributions && Array.isArray(data.contributions)) {
+        localStorage.setItem('dec_contributions', JSON.stringify(data.contributions));
+      }
 
       setPendingPackage(null);
       setSuccessMsg('System restored successfully from backup! Reloading workspace...');

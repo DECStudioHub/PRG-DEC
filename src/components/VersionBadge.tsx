@@ -11,6 +11,8 @@ import {
   Info,
   Layers,
   ArrowRight,
+  Award,
+  UserCheck,
 } from 'lucide-react';
 import {
   CURRENT_RELEASE,
@@ -24,9 +26,13 @@ import {
 
 interface VersionBadgeProps {
   className?: string;
+  onOpenCredits?: () => void;
 }
 
-export const VersionBadge: React.FC<VersionBadgeProps> = ({ className = '' }) => {
+export const VersionBadge: React.FC<VersionBadgeProps> = ({
+  className = '',
+  onOpenCredits,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedPrevious, setExpandedPrevious] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -191,6 +197,44 @@ export const VersionBadge: React.FC<VersionBadgeProps> = ({ className = '' }) =>
                 </ul>
               </div>
 
+              {/* Feature Credit / Suggested By Card */}
+              {CURRENT_RELEASE.credit && (
+                <div className="mt-3.5 p-3 rounded-xl bg-gradient-to-r from-amber-50 via-emerald-50/40 to-amber-50 border border-amber-200/90 shadow-2xs">
+                  <div className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wider text-amber-900">
+                    <Award className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>Feature Credit & Contribution</span>
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-baseline gap-1.5 text-xs">
+                    <span className="text-zinc-600 font-medium">Suggested By:</span>
+                    <span className="font-extrabold text-zinc-950 bg-white/90 px-2 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                      {CURRENT_RELEASE.credit.suggestedBy}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 text-xs text-zinc-800 leading-snug">
+                    <strong className="text-zinc-950 font-bold">{CURRENT_RELEASE.credit.feature}:</strong>{' '}
+                    {CURRENT_RELEASE.credit.description}
+                  </div>
+                  {CURRENT_RELEASE.credit.purpose && (
+                    <div className="mt-1 text-[11px] text-emerald-900 font-medium">
+                      <span className="font-bold">Purpose:</span> {CURRENT_RELEASE.credit.purpose}
+                    </div>
+                  )}
+                  {onOpenCredits && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOpen(false);
+                        onOpenCredits();
+                      }}
+                      className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 hover:text-amber-950 underline underline-offset-2 cursor-pointer"
+                    >
+                      <span>View in Credit & Contribution</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
+              )}
+
               {/* Granular Changes (if present) */}
               {CURRENT_RELEASE.changes && CURRENT_RELEASE.changes.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-emerald-100">
@@ -246,9 +290,15 @@ export const VersionBadge: React.FC<VersionBadgeProps> = ({ className = '' }) =>
                           <span className="font-mono font-bold text-xs px-2 py-0.5 rounded-md bg-white border border-zinc-200 text-zinc-800 shadow-2xs">
                             v{release.version}
                           </span>
-                          <span className="text-xs font-bold text-zinc-800 truncate max-w-[190px] sm:max-w-[240px]">
+                          <span className="text-xs font-bold text-zinc-800 truncate max-w-[170px] sm:max-w-[210px]">
                             {release.title}
                           </span>
+                          {release.credit && (
+                            <span className="hidden xs:inline-flex items-center gap-1 text-[9.5px] font-bold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-200/80 shrink-0">
+                              <Award className="w-2.5 h-2.5 text-amber-600" />
+                              <span>{release.credit.suggestedBy.split(' ')[0]}</span>
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0">
@@ -276,6 +326,38 @@ export const VersionBadge: React.FC<VersionBadgeProps> = ({ className = '' }) =>
                               </li>
                             ))}
                           </ul>
+                          {release.credit && (
+                            <div className="mt-2.5 p-2.5 rounded-lg bg-amber-50/80 border border-amber-200/80 text-xs">
+                              <div className="flex items-center gap-1.5 text-[10.5px] font-black uppercase tracking-wider text-amber-900">
+                                <Award className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                                <span>
+                                  Feature Credit: <span className="font-extrabold text-zinc-950">{release.credit.suggestedBy}</span>
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-zinc-700 mt-1 leading-snug">
+                                <strong className="text-zinc-950 font-bold">{release.credit.feature}:</strong>{' '}
+                                {release.credit.description}
+                              </p>
+                              {release.credit.purpose && (
+                                <div className="mt-0.5 text-[10.5px] text-emerald-900 font-medium">
+                                  <span className="font-bold">Purpose:</span> {release.credit.purpose}
+                                </div>
+                              )}
+                              {onOpenCredits && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsOpen(false);
+                                    onOpenCredits();
+                                  }}
+                                  className="mt-1.5 inline-flex items-center gap-1 text-[10.5px] font-bold text-amber-900 hover:text-amber-950 underline underline-offset-2 cursor-pointer"
+                                >
+                                  <span>View in Credit & Contribution</span>
+                                  <ArrowRight className="w-2.5 h-2.5" />
+                                </button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

@@ -9,6 +9,7 @@ export interface InventoryItem {
   counter: string;
   scanner: string;
   validator: string;
+  copies?: number | string;
   isSelected?: boolean;
   rawRowIndex?: number;
 }

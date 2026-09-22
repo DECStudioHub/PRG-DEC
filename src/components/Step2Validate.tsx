@@ -427,6 +427,7 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
                   counter: '',
                   scanner: '',
                   validator: '',
+                  copies: 1,
                   isSelected: true,
                 });
                 setIsAddingNew(true);
@@ -834,6 +835,22 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
                   onChange={(e) => setEditingItem({ ...editingItem, validator: e.target.value })}
                   placeholder="e.g. Pedro Reyes"
                   className="w-full px-2.5 py-1.5 border border-zinc-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">COPIES (TAG QUANTITY)</label>
+                <input
+                  type="number"
+                  min="1"
+                  value={editingItem.copies ?? 1}
+                  onChange={(e) =>
+                    setEditingItem({
+                      ...editingItem,
+                      copies: Math.max(1, parseInt(e.target.value, 10) || 1),
+                    })
+                  }
+                  className="w-full px-2.5 py-1.5 border border-zinc-300 rounded-md font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                 />
               </div>
             </div>

@@ -80,13 +80,14 @@ export const Step4Preview: React.FC<Step4PreviewProps> = ({
 
   const printContainerRef = useRef<HTMLDivElement>(null);
 
-  // Group and count tags per locator from items
+  // Group and count physical tags per locator from items (accounting for COPIES)
   const locatorCounts = useMemo(() => {
     const map = new Map<string, number>();
     items.forEach(it => {
       if (it.isSelected === false) return;
       const loc = (it.locator && String(it.locator).trim()) || 'UNASSIGNED';
-      map.set(loc, (map.get(loc) || 0) + 1);
+      const copiesCount = (it.copies && Number(it.copies) >= 1) ? Math.floor(Number(it.copies)) : 1;
+      map.set(loc, (map.get(loc) || 0) + copiesCount);
     });
     const result: { locator: string; count: number }[] = [];
     map.forEach((count, locator) => {
@@ -273,6 +274,9 @@ export const Step4Preview: React.FC<Step4PreviewProps> = ({
   }, [selectedItems, tagsPerPage]);
 
   const totalPages = Math.max(1, packedPages.length);
+  const totalPhysicalTags = useMemo(() => {
+    return packedPages.reduce((sum, p) => sum + p.totalTags, 0);
+  }, [packedPages]);
 
   // Active page data and items
   const currentPageData = useMemo(() => {
@@ -316,7 +320,7 @@ export const Step4Preview: React.FC<Step4PreviewProps> = ({
         url: blobUrl,
         filename: filename,
         totalPages: totalPages,
-        totalTags: selectedItems.length,
+        totalTags: totalPhysicalTags,
         doc: doc,
       });
       setShowPdfModal(true);

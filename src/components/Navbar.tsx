@@ -13,6 +13,7 @@ import {
   TableProperties,
   HelpCircle,
   Database,
+  Users,
 } from 'lucide-react';
 import { AppStep, InventorySession, SystemSettings, AppModuleId } from '../types';
 import { getPaletteTheme, DEFAULT_PRINCE_LOGO, PRINCE_LOGO_INLINE_SVG, getEffectiveLogoUrl } from '../utils/theme';
@@ -30,6 +31,7 @@ interface NavbarProps {
   onReset: () => void;
   onOpenWelcome?: () => void;
   onOpenBackup?: () => void;
+  onOpenCredits?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -44,6 +46,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onReset,
   onOpenWelcome,
   onOpenBackup,
+  onOpenCredits,
 }) => {
   const activeTheme = getPaletteTheme(settings.paletteId, settings.customPrimaryColor);
 
@@ -160,16 +163,13 @@ export const Navbar: React.FC<NavbarProps> = ({
               </div>
             )}
 
-            {/* Interactive System Version Badge & Popover */}
-            <VersionBadge />
-
             {/* System Backup Action */}
             {onOpenBackup && (
               <button
                 type="button"
                 onClick={onOpenBackup}
                 title="System Backup & Restore (JSON)"
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors border border-zinc-200 cursor-pointer"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors border border-zinc-200 cursor-pointer shadow-2xs"
               >
                 <Database className="w-3.5 h-3.5 text-emerald-700" />
                 <span className="hidden sm:inline">Backup</span>
@@ -181,7 +181,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               type="button"
               onClick={() => onSelectStep('settings')}
               title="Open System Settings & Customization"
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer border ${
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-colors cursor-pointer border shadow-2xs ${
                 currentStep === 'settings'
                   ? 'text-white border-transparent'
                   : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 border-zinc-200'
@@ -193,6 +193,23 @@ export const Navbar: React.FC<NavbarProps> = ({
               <Settings className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Settings</span>
             </button>
+
+            {/* Interactive System Version Badge & Popover */}
+            <VersionBadge onOpenCredits={onOpenCredits} />
+
+            {/* 👥 Credit & Contribution Tab / Icon Button */}
+            {onOpenCredits && (
+              <button
+                type="button"
+                onClick={onOpenCredits}
+                title="Credit & Contribution — Contributor Recognition & Suggestions"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg transition-all cursor-pointer select-none border border-zinc-200 hover:border-zinc-300 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 hover:text-zinc-950 shadow-2xs"
+              >
+                <Users className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span className="hidden sm:inline">Credit & Contribution</span>
+                <span className="sm:hidden">Credits</span>
+              </button>
+            )}
 
             {/* Welcome / Guide Help Button */}
             {onOpenWelcome && (

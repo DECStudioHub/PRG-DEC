@@ -6,6 +6,7 @@ import {
   LayoutConfig,
   SystemSettings,
 } from '../types';
+import { Contributor } from '../config/contributions';
 
 export interface SystemBackupPackage {
   schemaVersion: '2.0';
@@ -16,6 +17,7 @@ export interface SystemBackupPackage {
     hasLayoutConfig: boolean;
     hasCountSheetConfig: boolean;
     presetCount: number;
+    contributorCount?: number;
   };
   data: {
     items: InventoryItem[];
@@ -26,6 +28,7 @@ export interface SystemBackupPackage {
     countSheetConfig?: CountSheetConfig;
     countSheetPresets?: CountSheetPreset[];
     activeModule?: string;
+    contributions?: Contributor[];
   };
 }
 
@@ -56,6 +59,9 @@ export function exportSystemBackup(): void {
 
     const activeModule = localStorage.getItem('inv_active_module') || 'count_tag';
 
+    const contributionsRaw = localStorage.getItem('dec_contributions');
+    const contributions = contributionsRaw ? JSON.parse(contributionsRaw) : undefined;
+
     const backupPackage: SystemBackupPackage = {
       schemaVersion: '2.0',
       exportedAt: new Date().toISOString(),
@@ -65,6 +71,7 @@ export function exportSystemBackup(): void {
         hasLayoutConfig: Boolean(configRaw),
         hasCountSheetConfig: Boolean(countSheetConfigRaw),
         presetCount: Array.isArray(countSheetPresets) ? countSheetPresets.length : 0,
+        contributorCount: Array.isArray(contributions) ? contributions.length : 0,
       },
       data: {
         items,
@@ -75,6 +82,7 @@ export function exportSystemBackup(): void {
         countSheetConfig,
         countSheetPresets,
         activeModule,
+        contributions,
       },
     };
 
@@ -132,6 +140,7 @@ export function validateBackupFile(parsed: any): { valid: boolean; error?: strin
       countSheetConfig: parsed.countSheetConfig,
       countSheetPresets: parsed.countSheetPresets,
       activeModule: parsed.activeModule,
+      contributions: parsed.data?.contributions || parsed.contributions,
     },
   };
 

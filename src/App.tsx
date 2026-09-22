@@ -27,6 +27,7 @@ import {
 import { ShelfTagPPModule } from './components/module2/ShelfTagPPModule';
 import { WelcomeModal } from './components/WelcomeModal';
 import { BackupRestoreModal } from './components/BackupRestoreModal';
+import { CreditContributionModal } from './components/CreditContributionModal';
 
 const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
   paperSize: 'A4',
@@ -213,6 +214,7 @@ export default function App() {
   });
 
   const [showBackupModal, setShowBackupModal] = useState<boolean>(false);
+  const [showCreditModal, setShowCreditModal] = useState<boolean>(false);
 
   // Load initial state from local storage if available
   useEffect(() => {
@@ -444,6 +446,7 @@ export default function App() {
         onReset={handleResetData}
         onOpenWelcome={() => setShowWelcome(true)}
         onOpenBackup={() => setShowBackupModal(true)}
+        onOpenCredits={() => setShowCreditModal(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 md:p-8 print:block print:p-0 print:m-0 print:max-w-none print:w-full">
@@ -563,6 +566,12 @@ export default function App() {
             }
           } catch {}
         }}
+      />
+
+      {/* Credit & Contribution Dedicated Recognition Modal */}
+      <CreditContributionModal
+        isOpen={showCreditModal}
+        onClose={() => setShowCreditModal(false)}
       />
     </div>
   );

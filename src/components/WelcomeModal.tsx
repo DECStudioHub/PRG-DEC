@@ -274,7 +274,7 @@ export const WelcomeModal: React.FC<WelcomeModalProps> = ({
           <div className="mt-1 flex items-center justify-center gap-1.5 text-[10.5px] font-semibold text-amber-800/80 uppercase tracking-wider">
             <span>DECStudioAiCreation</span>
             <span>•</span>
-            <span>DEC v2.0.3</span>
+            <span>{DISPLAY_VERSION}</span>
           </div>
         </div>
 

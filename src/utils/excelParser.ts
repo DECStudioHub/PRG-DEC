@@ -19,6 +19,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   counter: ['counter', 'counted by', 'counter name', 'counted_by', 'counter id', 'auditor'],
   scanner: ['scanner', 'scanner name', 'scanned by', 'scanner personnel', 'scanner staff', 'scanner id', 'scanner status', 'scan status', 'scanner result', 'scan result'],
   validator: ['validator', 'validated by', 'checker', 'validator name', 'verified by', 'checked by'],
+  copies: ['copies', 'copy', 'tag copies', 'qty copies', 'print copies', 'tags count', 'print count', 'no of copies', 'no. of copies'],
 };
 
 function normalizeHeader(header: string): string {
@@ -127,6 +128,7 @@ export function parseExcelFile(
     const counter = getItemVal('counter');
     const scanner = getItemVal('scanner');
     const validator = getItemVal('validator');
+    const rawCopies = getItemVal('copies');
 
     // If barcode is empty but upc is provided, fallback to upc
     if (!barcode && upcNo) {
@@ -157,6 +159,15 @@ export function parseExcelFile(
       }
     }
 
+    // Parse copies (optional positive integer)
+    let parsedCopies: number | undefined = undefined;
+    if (rawCopies !== '') {
+      const num = parseInt(rawCopies, 10);
+      if (!isNaN(num) && num >= 1) {
+        parsedCopies = num;
+      }
+    }
+
     const item: InventoryItem = {
       id,
       locator,
@@ -168,6 +179,7 @@ export function parseExcelFile(
       counter,
       scanner,
       validator,
+      copies: parsedCopies,
       isSelected: true,
       rawRowIndex: r + 1,
     };
