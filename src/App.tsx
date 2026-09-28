@@ -69,6 +69,7 @@ const DEFAULT_LAYOUT_CONFIG: LayoutConfig = {
   locatorBarcodeWidthMm: 42,
   locatorBarcodeHeightMm: 10,
   showLocatorText: true,
+  showDeptCode: true,
 };
 
 const DEFAULT_SESSION: InventorySession = {

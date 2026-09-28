@@ -290,11 +290,11 @@ export const Step1Import: React.FC<Step1ImportProps> = ({
         <div className="flex items-center gap-2 mb-3">
           <FileSpreadsheet className="w-5 h-5 text-zinc-600" />
           <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wide">
-            Recommended Excel File Format (4 Columns — v2.0.4)
+            Recommended Excel File Format (5 Columns — v2.0.6)
           </h3>
         </div>
         <p className="text-xs text-zinc-500 mb-4">
-          The simplified PCOUNT W2W template requires only <strong>4 essential columns</strong>. Optional columns from legacy templates are also supported with full backward compatibility:
+          The official PCOUNT W2W template features <strong>5 essential columns starting with DEPT CODE</strong>: DEPT CODE, LOCATOR, SKU, UPC, and DESCRIPTION. Optional legacy columns remain supported:
         </p>
 
         <div className="overflow-x-auto border border-zinc-200 rounded-lg">
@@ -309,6 +309,13 @@ export const Step1Import: React.FC<Step1ImportProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-200 text-zinc-700">
+              <tr className="bg-emerald-50/50">
+                <td className="px-3 py-2 font-mono font-bold text-emerald-900">DEPT CODE</td>
+                <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-100 text-emerald-800 rounded">New v2.0.6 (Col 1)</span></td>
+                <td className="px-3 py-2 font-medium">Department code/name (displays below tag number)</td>
+                <td className="px-3 py-2 text-zinc-500">Dept, DeptCode, Department, Dept No</td>
+                <td className="px-3 py-2 font-mono font-bold text-emerald-900">600, 630, 650</td>
+              </tr>
               <tr className="bg-blue-50/40">
                 <td className="px-3 py-2 font-mono font-bold text-blue-900">LOCATOR</td>
                 <td className="px-3 py-2"><span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-100 text-blue-800 rounded">Required</span></td>

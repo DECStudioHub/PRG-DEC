@@ -244,15 +244,48 @@ async function renderSingleTagToPdf(
     rightOffset = logoX - 2;
   }
 
-  // Tag # preceding the logo on the right
+  // Tag # and DEPT CODE preceding the logo on the right
+  let rightBlockWidth = 0;
+  if (config.showTagNumber !== false) {
+    const tagNumText = `#${item.rawRowIndex ? String(item.rawRowIndex - 1).padStart(3, '0') : '001'}`;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(Math.max(6.5, (Number(config.fontSizeLocator) || 11) * 0.58));
+    const tagNumWidth = doc.getTextWidth(tagNumText);
+    rightBlockWidth = Math.max(rightBlockWidth, tagNumWidth);
+  }
+
+  const hasDept = config.showDeptCode !== false && Boolean(item.deptCode && item.deptCode.trim());
+  let deptText = '';
+  if (hasDept) {
+    const rawDept = String(item.deptCode).trim();
+    deptText = rawDept.toUpperCase().startsWith('DEPT') ? rawDept : `DEPT: ${rawDept}`;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(Math.max(6, (Number(config.fontSizeLocator) || 11) * 0.52));
+    const deptWidth = doc.getTextWidth(deptText);
+    rightBlockWidth = Math.max(rightBlockWidth, deptWidth);
+  }
+
   if (config.showTagNumber !== false) {
     const tagNumText = `#${item.rawRowIndex ? String(item.rawRowIndex - 1).padStart(3, '0') : '001'}`;
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(Math.max(6.5, (Number(config.fontSizeLocator) || 11) * 0.58));
     doc.setTextColor(110, 110, 110);
     const tagNumWidth = doc.getTextWidth(tagNumText);
-    doc.text(tagNumText, rightOffset - tagNumWidth, y + headerHeight * 0.66);
-    rightOffset = rightOffset - tagNumWidth - 2;
+    const tagY = hasDept ? y + headerHeight * 0.42 : y + headerHeight * 0.66;
+    doc.text(tagNumText, rightOffset - tagNumWidth, tagY);
+  }
+
+  if (hasDept) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(Math.max(6, (Number(config.fontSizeLocator) || 11) * 0.52));
+    doc.setTextColor(30, 30, 30);
+    const deptWidth = doc.getTextWidth(deptText);
+    const deptY = config.showTagNumber !== false ? y + headerHeight * 0.82 : y + headerHeight * 0.66;
+    doc.text(deptText, rightOffset - deptWidth, deptY);
+  }
+
+  if (rightBlockWidth > 0) {
+    rightOffset = rightOffset - rightBlockWidth - 2;
   }
 
   // Left side: Scanner-Readable Locator Barcode (or text fallback if disabled)

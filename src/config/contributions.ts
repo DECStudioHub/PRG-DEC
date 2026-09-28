@@ -64,6 +64,19 @@ export const INITIAL_CONTRIBUTORS: Contributor[] = [
     name: 'John Lord Sarte',
     contributions: [
       {
+        id: 'contrib-v206-dept-code',
+        feature: 'PCOUNT W2W Count Tag — DEPT CODE',
+        version: 'v2.0.6',
+        type: 'Feature Enhancement / Process Improvement',
+        date: 'September 28, 2026',
+        description:
+          'Added DEPT CODE support to Count Tags, including downloadable Excel template support, Count Tag display below the Sequential Tag Number, and a Show/Hide display control.',
+        purpose:
+          'Added DEPT CODE support to Count Tags, including Excel template import, Count Tag display, and a configurable Show/Hide setting.',
+        notes:
+          'Allows store inventory teams to see department classification directly on printed Count Tags below the sequential tag number.',
+      },
+      {
         id: 'contrib-v204-locator-barcode',
         feature: 'Count Tag Locator Label → Barcode',
         version: 'v2.0.4',
@@ -109,9 +122,9 @@ export function getStoredContributors(): Contributor[] {
         // Ensure initial contributions exist under this contributor
         const existing = merged[existingIdx];
         const existingContribIds = new Set(existing.contributions.map(ct => ct.id));
-        for (const ct of initContributor.contributions) {
+        for (const ct of [...initContributor.contributions].reverse()) {
           if (!existingContribIds.has(ct.id)) {
-            existing.contributions.push(ct);
+            existing.contributions.unshift(ct);
           }
         }
       }

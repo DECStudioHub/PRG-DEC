@@ -41,6 +41,38 @@ export const SYSTEM_SUBTITLE = 'Backup • Continuity • Alternative Process �
 
 export const DEC_RELEASES: SystemRelease[] = [
   {
+    version: '2.0.6',
+    releaseDate: 'September 28, 2026',
+    releaseType: 'minor',
+    title: 'PCOUNT W2W Count Tag DEPT CODE Enhancement',
+    summary:
+      'Official DEC v2.0.6 release upgrading PCOUNT W2W Count Tags with DEPT CODE support, including downloadable 5-column Excel template (LOCATOR, SKU, UPC, DESCRIPTION, DEPT CODE), visual DEPT CODE rendering directly below the Sequential Tag Number, and a dedicated Show DEPT CODE ON/OFF toggle setting.',
+    highlights: [
+      'Added DEPT CODE support to PCOUNT W2W Count Tag data model and Excel importer.',
+      'Updated downloadable Count Tag Excel Template to exactly 5 columns: LOCATOR, SKU, UPC, DESCRIPTION, DEPT CODE.',
+      'Added DEPT CODE display directly below Sequential Tag Number on Count Tags.',
+      'Added Show DEPT CODE ON/OFF setting (Default: ON) in Step 3 Count Tag Layout & Display Settings.',
+      'Default DEPT CODE display is ON, with instantaneous Live Preview, Native Print, and Vector PDF reactivity.',
+      'Preserved all existing PCOUNT W2W Count Tag features (Locator Barcodes, 9 tags/page optimization, sorting, COPIES, filtering).',
+      'Credited feature enhancement to John Lord Sarte in Credit & Contribution.',
+    ],
+    changes: [
+      { type: 'feature', text: 'Added DEPT CODE to PCOUNT W2W Count Tag data model and Excel importer' },
+      { type: 'feature', text: 'Updated downloadable Count Tag Excel Template to 5 columns: LOCATOR, SKU, UPC, DESCRIPTION, DEPT CODE' },
+      { type: 'feature', text: 'Added DEPT CODE display directly below Sequential Tag Number' },
+      { type: 'feature', text: 'Added Show DEPT CODE ON/OFF setting (Default: ON)' },
+      { type: 'improvement', text: 'Maintained 100% visual parity across Live Preview, Native Browser Print, and Vector PDF' },
+      { type: 'improvement', text: 'Backward compatibility for legacy 4-column templates and blank department codes' },
+    ],
+    credit: {
+      feature: 'PCOUNT W2W Count Tag — DEPT CODE',
+      description:
+        'Added DEPT CODE support to Count Tags, including downloadable Excel template support, Count Tag display below the Sequential Tag Number, and a Show/Hide display control.',
+      suggestedBy: 'John Lord Sarte',
+      purpose: 'Allow store users to identify product departments on printed Count Tags directly beneath the sequential tag number.',
+    },
+  },
+  {
     version: '2.0.5',
     releaseDate: 'September 22, 2026',
     releaseType: 'minor',

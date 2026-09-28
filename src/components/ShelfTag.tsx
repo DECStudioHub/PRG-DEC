@@ -155,16 +155,29 @@ export const ShelfTag: React.FC<ShelfTagProps> = ({
           </div>
         )}
 
-        {/* Upper Right: Tag # & Prince Logo */}
+        {/* Upper Right: Tag #, DEPT CODE & Prince Logo */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {config.showTagNumber !== false && (
-            <span
-              className="font-mono uppercase text-zinc-600 font-bold"
-              style={{ fontSize: `${Math.max(7, config.fontSizeLocator * 0.58 * scale)}px` }}
-            >
-              #{item.rawRowIndex ? String(item.rawRowIndex - 1).padStart(3, '0') : '001'}
-            </span>
-          )}
+          <div className="flex flex-col items-end justify-center">
+            {config.showTagNumber !== false && (
+              <span
+                className="font-mono uppercase text-zinc-600 font-bold leading-tight"
+                style={{ fontSize: `${Math.max(7, config.fontSizeLocator * 0.58 * scale)}px` }}
+              >
+                #{item.rawRowIndex ? String(item.rawRowIndex - 1).padStart(3, '0') : '001'}
+              </span>
+            )}
+            {config.showDeptCode !== false && Boolean(item.deptCode && item.deptCode.trim()) && (
+              <span
+                className="font-mono font-bold text-zinc-900 uppercase tracking-tight leading-tight mt-0.5"
+                style={{ fontSize: `${Math.max(6.5, config.fontSizeLocator * 0.52 * scale)}px` }}
+                title={`Department: ${item.deptCode}`}
+              >
+                {item.deptCode!.trim().toUpperCase().startsWith('DEPT')
+                  ? item.deptCode!.trim()
+                  : `DEPT: ${item.deptCode!.trim()}`}
+              </span>
+            )}
+          </div>
 
           {config.showLogo !== false && (
             <div

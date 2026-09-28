@@ -4,6 +4,7 @@ export interface InventoryItem {
   sku: string;
   upcNo: string;
   description: string;
+  deptCode?: string;
   barcode: string;
   count: number | string;
   counter: string;
@@ -89,6 +90,8 @@ export interface LayoutConfig {
   locatorBarcodeWidthMm?: number;
   locatorBarcodeHeightMm?: number;
   showLocatorText?: boolean;
+  // DEPT CODE Settings (v2.0.6)
+  showDeptCode?: boolean;
 }
 
 export interface InventorySession {

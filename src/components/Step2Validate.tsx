@@ -33,7 +33,7 @@ interface Step2ValidateProps {
 }
 
 type FilterMode = 'all' | 'valid' | 'warning' | 'error' | 'selected';
-type SortField = 'locator' | 'sku' | 'upcNo' | 'description' | 'count' | 'counter' | 'scanner' | 'validator';
+type SortField = 'locator' | 'sku' | 'upcNo' | 'description' | 'deptCode' | 'count' | 'counter' | 'scanner' | 'validator';
 type SortDir = 'asc' | 'desc';
 
 export const Step2Validate: React.FC<Step2ValidateProps> = ({
@@ -92,6 +92,7 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
             item.sku.toLowerCase().includes(q) ||
             item.upcNo.toLowerCase().includes(q) ||
             item.description.toLowerCase().includes(q) ||
+            (item.deptCode && item.deptCode.toLowerCase().includes(q)) ||
             item.barcode.toLowerCase().includes(q) ||
             item.counter.toLowerCase().includes(q) ||
             (item.scanner && item.scanner.toLowerCase().includes(q)) ||
@@ -520,6 +521,15 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
                     <ArrowUpDown className="w-3 h-3 text-zinc-400" />
                   </div>
                 </th>
+                <th
+                  onClick={() => handleSort('deptCode')}
+                  className="px-3 py-2.5 cursor-pointer hover:bg-zinc-200/70 transition-colors whitespace-nowrap"
+                >
+                  <div className="flex items-center gap-1 font-bold">
+                    <span>DEPT CODE</span>
+                    <ArrowUpDown className="w-3 h-3 text-zinc-400" />
+                  </div>
+                </th>
                 <th className="px-3 py-2.5 font-bold">BARCODE</th>
                 <th
                   onClick={() => handleSort('count')}
@@ -563,7 +573,7 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
             <tbody className="divide-y divide-zinc-200 text-zinc-800 bg-white font-medium">
               {displayedItems.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="text-center py-12 text-zinc-400">
+                  <td colSpan={13} className="text-center py-12 text-zinc-400">
                     No inventory items matched your criteria.
                   </td>
                 </tr>
@@ -629,6 +639,17 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
                       {/* DESCRIPTION */}
                       <td className="px-3 py-2 font-medium text-zinc-900 max-w-xs truncate" title={item.description}>
                         {item.description || <span className="text-rose-600 italic">No description</span>}
+                      </td>
+
+                      {/* DEPT CODE */}
+                      <td className="px-3 py-2 font-mono text-xs whitespace-nowrap">
+                        {item.deptCode ? (
+                          <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-1.5 py-0.5 rounded-sm font-semibold">
+                            {item.deptCode}
+                          </span>
+                        ) : (
+                          <span className="text-zinc-400 italic">---</span>
+                        )}
                       </td>
 
                       {/* BARCODE */}
@@ -792,6 +813,17 @@ export const Step2Validate: React.FC<Step2ValidateProps> = ({
                   onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })}
                   placeholder="e.g. Coca-Cola 1.5L Bottle"
                   className="w-full px-2.5 py-1.5 border border-zinc-300 rounded-md focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">DEPT CODE</label>
+                <input
+                  type="text"
+                  value={editingItem.deptCode || ''}
+                  onChange={(e) => setEditingItem({ ...editingItem, deptCode: e.target.value })}
+                  placeholder="e.g. GROCERY, BEVERAGE, D01"
+                  className="w-full px-2.5 py-1.5 border border-zinc-300 rounded-md font-mono focus:ring-2 focus:ring-emerald-500 focus:outline-none uppercase"
                 />
               </div>
 

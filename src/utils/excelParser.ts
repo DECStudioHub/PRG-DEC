@@ -14,6 +14,7 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   sku: ['sku', 'item code', 'product code', 'item no', 'item_no', 'part no', 'sku code'],
   upcNo: ['upc', 'upc no', 'ean', 'upc_no', 'upc code', 'barcode no', 'upc/ean'],
   description: ['description', 'desc', 'item description', 'product name', 'item name', 'name', 'title'],
+  deptCode: ['dept code', 'dept', 'deptcode', 'department', 'department code', 'dept no', 'dept_code', 'dept_no'],
   barcode: ['barcode', 'bar code', 'barcode value', 'code'],
   count: ['count', 'qty', 'quantity', 'actual count', 'physical count', 'counted qty', 'stock'],
   counter: ['counter', 'counted by', 'counter name', 'counted_by', 'counter id', 'auditor'],
@@ -123,6 +124,7 @@ export function parseExcelFile(
     const sku = getItemVal('sku');
     let upcNo = getItemVal('upcNo');
     const description = getItemVal('description');
+    const deptCode = getItemVal('deptCode', '');
     let barcode = getItemVal('barcode');
     const rawCount = getItemVal('count', '0');
     const counter = getItemVal('counter');
@@ -174,6 +176,7 @@ export function parseExcelFile(
       sku,
       upcNo,
       description,
+      deptCode: deptCode ? deptCode.trim() : '',
       barcode,
       count: parsedCount,
       counter,
@@ -515,6 +518,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU001',
     upcNo: '123456789012',
     description: 'Coca-Cola Classic 1.5L',
+    deptCode: '600',
     barcode: '123456789012',
     count: 25,
     counter: 'Juan Santos',
@@ -529,6 +533,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU002',
     upcNo: '987654321098',
     description: 'Pepsi Cola 1.5L Bottle',
+    deptCode: '600',
     barcode: '987654321098',
     count: 18,
     counter: 'Juan Santos',
@@ -543,6 +548,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU003',
     upcNo: '456789123456',
     description: 'Sprite Lemon-Lime 1.5L',
+    deptCode: '600',
     barcode: '456789123456',
     count: 32,
     counter: 'Juan Santos',
@@ -557,6 +563,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU004',
     upcNo: '789123456789',
     description: 'Mountain Dew 1.5L Pitch Black',
+    deptCode: '630',
     barcode: '789123456789',
     count: 14,
     counter: 'Maria Gomez',
@@ -571,6 +578,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU005',
     upcNo: '321654987321',
     description: 'Royal Tru-Orange 1.5L Pet',
+    deptCode: '630',
     barcode: '321654987321',
     count: 40,
     counter: 'Maria Gomez',
@@ -585,6 +593,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU006',
     upcNo: '654321789654',
     description: 'C2 Green Tea Apple 500ml',
+    deptCode: '630',
     barcode: '654321789654',
     count: 55,
     counter: 'Maria Gomez',
@@ -599,6 +608,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU007',
     upcNo: '880104301483',
     description: 'Nongshim Shin Ramyun 120g',
+    deptCode: '650',
     barcode: '880104301483',
     count: 72,
     counter: 'Juan Santos',
@@ -613,6 +623,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU008',
     upcNo: '480001664402',
     description: 'Lucky Me Pancit Canton Original 80g',
+    deptCode: '650',
     barcode: '480001664402',
     count: 120,
     counter: 'Juan Santos',
@@ -627,6 +638,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU009',
     upcNo: '480001664403',
     description: 'Lucky Me Pancit Canton Chili Mansi 80g',
+    deptCode: '650',
     barcode: '480001664403',
     count: 95,
     counter: 'Juan Santos',
@@ -641,6 +653,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU010',
     upcNo: '480001602488',
     description: 'Jack n Jill Piattos Cheese 85g',
+    deptCode: '670',
     barcode: '480001602488',
     count: 48,
     counter: 'Carlos Dizon',
@@ -655,6 +668,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU011',
     upcNo: '480001602499',
     description: 'Jack n Jill Nova Cheddar 78g',
+    deptCode: '670',
     barcode: '480001602499',
     count: 36,
     counter: 'Carlos Dizon',
@@ -669,6 +683,7 @@ export const DEMO_ITEMS: InventoryItem[] = [
     sku: 'SKU012',
     upcNo: '480009211333',
     description: 'San Miguel Pale Pilsen 330ml Can',
+    deptCode: '690',
     barcode: '480009211333',
     count: 64,
     counter: 'Carlos Dizon',
@@ -682,21 +697,22 @@ export const DEMO_ITEMS: InventoryItem[] = [
 export const SAMPLE_DEMO_ITEMS: InventoryItem[] = DEMO_ITEMS;
 
 export function downloadSampleExcelTemplate(): void {
-  const headers = ['LOCATOR', 'SKU', 'UPC', 'DESCRIPTION'];
+  const headers = ['DEPT CODE', 'LOCATOR', 'SKU', 'UPC', 'DESCRIPTION'];
   const sampleData = [
     headers,
-    ['BA-A1-B21L', '14177', '1428503045', 'UFC BANANA CATSUP 1000G'],
-    ['BA-A1-B21L', '14178', '1428503046', 'SAMPLE ITEM'],
-    ['BA-A1-B22L', '14179', '1428503047', 'SAMPLE ITEM 2'],
-    ['BA-A1-B22L', '14180', '1428503048', 'COCA-COLA CLASSIC 1.5L'],
-    ['BA-A2-B01L', '14181', '1428503049', 'LUCKY ME PANCIT CANTON 80G'],
-    ['BA-A2-B02L', '14182', '1428503050', 'SAN MIGUEL PALE PILSEN 330ML'],
+    ['600', 'BA-A1-B21L', '14177', '1428503045', 'UFC BANANA CATSUP 1000G'],
+    ['600', 'BA-A1-B21L', '14178', '1428503046', 'SAMPLE ITEM'],
+    ['630', 'BA-A1-B22L', '14179', '1428503047', 'SAMPLE ITEM 2'],
+    ['650', 'BA-A1-B22L', '14180', '1428503048', 'COCA-COLA CLASSIC 1.5L'],
+    ['670', 'BA-A2-B01L', '14181', '1428503049', 'LUCKY ME PANCIT CANTON 80G'],
+    ['690', 'BA-A2-B02L', '14182', '1428503050', 'SAN MIGUEL PALE PILSEN 330ML'],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(sampleData);
 
   // Set column widths
   ws['!cols'] = [
+    { wch: 14 }, // DEPT CODE
     { wch: 16 }, // LOCATOR
     { wch: 14 }, // SKU
     { wch: 18 }, // UPC
@@ -713,6 +729,7 @@ export function exportInventoryToExcel(
   filename: string = 'inventory_counting_export.xlsx'
 ): void {
   const rows = items.map(item => ({
+    'DEPT CODE': item.deptCode || '',
     'LOCATOR': item.locator,
     'SKU': item.sku,
     'UPC NO': item.upcNo,
@@ -726,6 +743,7 @@ export function exportInventoryToExcel(
 
   const ws = XLSX.utils.json_to_sheet(rows);
   ws['!cols'] = [
+    { wch: 14 },
     { wch: 12 },
     { wch: 14 },
     { wch: 18 },

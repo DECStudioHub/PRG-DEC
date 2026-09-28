@@ -72,6 +72,7 @@ export const StandalonePrintView: React.FC<StandalonePrintViewProps> = ({
             locatorBarcodeWidthMm: 42,
             locatorBarcodeHeightMm: 10,
             showLocatorText: true,
+            showDeptCode: true,
           };
     } catch {
       return {
@@ -108,6 +109,12 @@ export const StandalonePrintView: React.FC<StandalonePrintViewProps> = ({
         countBoxGapTopMm: 2.5,
         countBoxFontSize: 13,
         countBoxBorderWidth: 2,
+        showBarcodeText: true,
+        locatorBarcodeEnabled: true,
+        locatorBarcodeWidthMm: 42,
+        locatorBarcodeHeightMm: 10,
+        showLocatorText: true,
+        showDeptCode: true,
       };
     }
   });

@@ -1467,6 +1467,26 @@ export const Step3Configure: React.FC<Step3ConfigureProps> = ({
                   </span>
                 </div>
               </label>
+
+              {/* Show DEPT CODE toggle (v2.0.6) */}
+              <label className="flex items-start gap-3 p-3 bg-zinc-50 hover:bg-zinc-100/70 border border-zinc-200 rounded-lg cursor-pointer transition-colors">
+                <input
+                  type="checkbox"
+                  checked={config.showDeptCode !== false}
+                  onChange={(e) =>
+                    onUpdateConfig({ ...config, showDeptCode: e.target.checked })
+                  }
+                  className="mt-0.5 rounded-xs text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-bold text-zinc-900 block">
+                    Show DEPT CODE
+                  </span>
+                  <span className="text-[11px] text-zinc-500 block mt-0.5">
+                    Displays the imported department identifier on the Count Tag directly beneath the Sequential Tag Number.
+                  </span>
+                </div>
+              </label>
             </div>
           </div>
         </div>
