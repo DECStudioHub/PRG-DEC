@@ -9,7 +9,6 @@ import {
 import { CountSheetGenerator } from '../countSheet/CountSheetGenerator';
 import { Step3Configure } from '../Step3Configure';
 import { Step4Preview } from '../Step4Preview';
-import { Step1Import } from '../Step1Import';
 import { DEFAULT_PRINCE_LOGO } from '../../utils/theme';
 import {
   TableProperties,
@@ -180,58 +179,7 @@ export const CycleCountModule: React.FC<CycleCountModuleProps> = ({
     });
   }, [items, selectedDeptFilter, filterSearch]);
 
-  // If no central data imported yet, render central import screen
-  if (items.length === 0) {
-    return (
-      <div className="space-y-6">
-        <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-xs">
-          <div className="max-w-2xl mx-auto text-center space-y-4 py-8">
-            <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 border border-amber-200 text-amber-800 flex items-center justify-center shadow-xs">
-              <Database className="w-7 h-7" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-zinc-900 uppercase tracking-tight">
-                No Excel Dataset Imported Yet
-              </h2>
-              <p className="text-sm text-zinc-500 mt-1 max-w-md mx-auto">
-                DEC v2.0.7 features a single centralized Excel import. Import your file once, and it will be instantly shared between <strong>PCOUNT W2W</strong> and <strong>CYCLE COUNT</strong>.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={onSwitchToCentralImport}
-                className="px-4 py-2.5 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-lg shadow-xs transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-                <span>GO TO CENTRAL EXCEL IMPORT</span>
-              </button>
-              <button
-                type="button"
-                onClick={onLoadSampleData}
-                className="px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 text-xs font-bold rounded-lg transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-amber-600" />
-                <span>LOAD SUPERMARKET DEMO DATA</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Central Import Dropzone Fallback */}
-        <div className="border-t border-zinc-200 pt-4">
-          <Step1Import
-            onDataLoaded={onDataLoaded}
-            session={session}
-            settings={settings}
-            onUpdateSession={onUpdateSession}
-          />
-        </div>
-      </div>
-    );
-  }
-
+  // Removed 'No Excel Dataset Imported Yet' design card per user request so CYCLE COUNT view renders directly
   return (
     <div className="space-y-4">
       {/* 1. CYCLE COUNT PRIMARY MODULE HEADER */}

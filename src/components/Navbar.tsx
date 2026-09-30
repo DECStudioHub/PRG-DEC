@@ -121,21 +121,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
           </div>
 
-          {/* Center: Module Selector (Sequence: CYCLE COUNT | PCOUNT W2W | SHELFTAG / PP TAG) */}
+          {/* Center: Module Selector (Sequence: PCOUNT W2W | CYCLE COUNT | SHELFTAG / PP TAG) */}
           <div className="hidden md:flex items-center p-1 bg-zinc-100/90 rounded-xl border border-zinc-200 shadow-2xs">
-            <button
-              type="button"
-              onClick={() => onSelectModule('cycle_count')}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                activeModule === 'cycle_count'
-                  ? 'bg-amber-600 text-white shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50'
-              }`}
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>CYCLE COUNT</span>
-            </button>
-
             <button
               type="button"
               onClick={() => onSelectModule('count_tag')}
@@ -147,6 +134,19 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               <ClipboardList className="w-3.5 h-3.5" />
               <span>PCOUNT W2W</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onSelectModule('cycle_count')}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeModule === 'cycle_count'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-200/50'
+              }`}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>CYCLE COUNT</span>
             </button>
 
             <button
@@ -270,19 +270,8 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
 
-        {/* Mobile Module Selector Bar (Sequence: CYCLE COUNT | PCOUNT W2W | SHELFTAG / PP TAG) */}
+        {/* Mobile Module Selector Bar (Sequence: PCOUNT W2W | CYCLE COUNT | SHELFTAG / PP TAG) */}
         <div className="flex md:hidden items-center justify-center pb-3 gap-2 border-t border-zinc-100 pt-2">
-          <button
-            type="button"
-            onClick={() => onSelectModule('cycle_count')}
-            className={`flex-1 py-1.5 px-2 text-center text-xs font-bold rounded-lg transition-all ${
-              activeModule === 'cycle_count'
-                ? 'bg-amber-600 text-white shadow-xs'
-                : 'bg-zinc-100 text-zinc-700'
-            }`}
-          >
-            CYCLE COUNT
-          </button>
           <button
             type="button"
             onClick={() => onSelectModule('count_tag')}
@@ -293,6 +282,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             PCOUNT W2W
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectModule('cycle_count')}
+            className={`flex-1 py-1.5 px-2 text-center text-xs font-bold rounded-lg transition-all ${
+              activeModule === 'cycle_count'
+                ? 'bg-amber-600 text-white shadow-xs'
+                : 'bg-zinc-100 text-zinc-700'
+            }`}
+          >
+            CYCLE COUNT
           </button>
           <button
             type="button"
