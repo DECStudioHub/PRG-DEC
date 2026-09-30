@@ -10,6 +10,7 @@ import {
 import {
   calculateCountSheetSummary,
   DEFAULT_COUNT_SHEET_CONFIG,
+  DEFAULT_CYCLE_COUNT_SHEET_CONFIG,
   DEFAULT_COUNT_SHEET_PRESETS,
   getCountSheetPaperDimensions,
   paginateCountSheetItems,
@@ -49,17 +50,24 @@ interface CountSheetGeneratorProps {
   items: InventoryItem[];
   session: InventorySession;
   settings: SystemSettings;
-  onBackToValidate: () => void;
-  onSwitchToCountTags: () => void;
+  moduleContext?: 'pcount' | 'cycle_count';
+  onBackToValidate?: () => void;
+  onSwitchToCountTags?: () => void;
 }
 
 export const CountSheetGenerator: React.FC<CountSheetGeneratorProps> = ({
   items,
   session,
   settings,
+  moduleContext = 'pcount',
   onBackToValidate,
   onSwitchToCountTags,
 }) => {
+  const isCycleCount = moduleContext === 'cycle_count';
+  const configStorageKey = isCycleCount
+    ? 'count_sheet_active_config_cycle_count'
+    : 'count_sheet_active_config';
+
   // Preset management stored in localStorage
   const [presets, setPresets] = useState<CountSheetPreset[]>(() => {
     try {
@@ -74,28 +82,49 @@ export const CountSheetGenerator: React.FC<CountSheetGeneratorProps> = ({
     return DEFAULT_COUNT_SHEET_PRESETS;
   });
 
-  // Active configuration
+  // Active configuration (Independent per module)
   const [config, setConfig] = useState<CountSheetConfig>(() => {
+    const baseDefault = isCycleCount
+      ? DEFAULT_CYCLE_COUNT_SHEET_CONFIG
+      : DEFAULT_COUNT_SHEET_CONFIG;
+
     try {
-      const saved = localStorage.getItem('count_sheet_active_config');
+      const saved = localStorage.getItem(configStorageKey);
       if (saved) {
         const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_COUNT_SHEET_CONFIG,
+        const merged: CountSheetConfig = {
+          ...baseDefault,
           ...parsed,
-          barcodeWidthMm: parsed.barcodeWidthMm || DEFAULT_COUNT_SHEET_CONFIG.barcodeWidthMm || 36,
+          barcodeWidthMm: parsed.barcodeWidthMm || baseDefault.barcodeWidthMm || 36,
           sortField: parsed.sortField || 'description',
           sortOrder: parsed.sortOrder || 'asc',
         };
+
+        // For Cycle Count, ensure user request requirements are enforced:
+        if (isCycleCount) {
+          merged.mixLocators = true;
+          merged.showLocatorBarcode = false;
+          merged.showLocatorText = false;
+          merged.showLocatorBarcodeText = false;
+          if (!merged.columnOrder || !merged.columnOrder.includes('locator')) {
+            merged.columnOrder = ['locator', ...(merged.columnOrder || ['sku', 'barcode', 'description', 'count'])];
+          }
+          if (!merged.columnVisibility) {
+            merged.columnVisibility = { ...DEFAULT_CYCLE_COUNT_SHEET_CONFIG.columnVisibility };
+          } else {
+            merged.columnVisibility.locator = true;
+          }
+        }
+        return merged;
       }
     } catch {}
-    return DEFAULT_COUNT_SHEET_CONFIG;
+    return { ...baseDefault };
   });
 
   // Calculate summary statistics
   const summary = useMemo(() => {
-    return calculateCountSheetSummary(items, config.rowsPerPage);
-  }, [items, config.rowsPerPage]);
+    return calculateCountSheetSummary(items, config.rowsPerPage, Boolean(config.mixLocators));
+  }, [items, config.rowsPerPage, config.mixLocators]);
 
   // List of all distinct available locators in the imported dataset
   const allLocators = useMemo(() => {
@@ -290,7 +319,7 @@ export const CountSheetGenerator: React.FC<CountSheetGeneratorProps> = ({
   const handleUpdateConfig = (newConfig: CountSheetConfig) => {
     setConfig(newConfig);
     try {
-      localStorage.setItem('count_sheet_active_config', JSON.stringify(newConfig));
+      localStorage.setItem(configStorageKey, JSON.stringify(newConfig));
     } catch (e) {
       console.warn('Could not save count sheet config:', e);
     }
@@ -327,7 +356,11 @@ export const CountSheetGenerator: React.FC<CountSheetGeneratorProps> = ({
   };
 
   const handleResetToDefaults = () => {
-    handleUpdateConfig(DEFAULT_COUNT_SHEET_CONFIG);
+    handleUpdateConfig(
+      isCycleCount
+        ? { ...DEFAULT_CYCLE_COUNT_SHEET_CONFIG }
+        : { ...DEFAULT_COUNT_SHEET_CONFIG }
+    );
   };
 
   // Generate paginated pages strictly for selected locators
@@ -338,9 +371,10 @@ export const CountSheetGenerator: React.FC<CountSheetGeneratorProps> = ({
       config.rowsPerPage,
       selectedLocatorsArray,
       config.sortField,
-      config.sortOrder
+      config.sortOrder,
+      Boolean(config.mixLocators)
     );
-  }, [items, config.rowsPerPage, selectedLocatorsArray, config.sortField, config.sortOrder]);
+  }, [items, config.rowsPerPage, selectedLocatorsArray, config.sortField, config.sortOrder, config.mixLocators]);
 
   // Paper dimensions
   const paperDims = useMemo(() => {
@@ -573,23 +607,31 @@ export const CountSheetGenerator: React.FC<CountSheetGeneratorProps> = ({
       {/* 1. TOP SUMMARY & ACTION BAR (MANDATED SECTION 27) */}
       <div className="bg-white border border-zinc-200 rounded-xl p-4 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4 print:hidden">
         <div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onBackToValidate}
-              className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
-              title="Back to item validation"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {onBackToValidate && (
+              <button
+                type="button"
+                onClick={onBackToValidate}
+                className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+                title="Back to item validation"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
             <div className="flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
               <h1 className="text-lg font-black tracking-tight text-zinc-900 uppercase">
-                COUNT SHEET GENERATOR
+                {isCycleCount ? 'CYCLE COUNT SHEET GENERATOR' : 'COUNT SHEET GENERATOR'}
               </h1>
             </div>
-            <span className="px-2 py-0.5 text-[10px] font-bold uppercase bg-emerald-100 text-emerald-800 rounded-full border border-emerald-200">
-              PHYSICAL INVENTORY FORM
+            <span className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded-full border ${
+              isCycleCount
+                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                : 'bg-emerald-100 text-emerald-800 border-emerald-200'
+            }`}>
+              {isCycleCount
+                ? config.mixLocators ? 'CYCLE COUNT • CONTINUOUS FILL' : 'CYCLE COUNT • SPLIT LOCATORS'
+                : 'PHYSICAL INVENTORY FORM'}
             </span>
           </div>
 

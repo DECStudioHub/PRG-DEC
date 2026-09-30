@@ -41,6 +41,45 @@ export const SYSTEM_SUBTITLE = 'Backup • Continuity • Alternative Process �
 
 export const DEC_RELEASES: SystemRelease[] = [
   {
+    version: '2.0.7',
+    releaseDate: 'September 29, 2026',
+    releaseType: 'minor',
+    title: 'CYCLE COUNT Module & Count Sheet Workflow Enhancements',
+    summary:
+      'Official DEC v2.0.7 release introducing the dedicated CYCLE COUNT primary module with continuous multi-locator page-filling optimization, unified central Excel dataset sharing, and major Count Sheet workflow enhancements credited to Richard Banquillo: scannable locator barcode column, dedicated PRE COUNT column, FINAL COUNT write-in, removal of upper-right locator clutter, and clean unmixed SKU columns.',
+    highlights: [
+      'Added third primary navigation module: CYCLE COUNT alongside PCOUNT W2W and SHELFTAG / PP TAG.',
+      'Count Sheet Sequence standardized to: # | LOCATOR | SKU | BARCODE | DESCRIPTION | PRE COUNT | FINAL COUNT.',
+      'Scannable Barcode Line in LOCATOR table column: handheld scanners can scan bin/shelf locators directly from the physical count sheet.',
+      'Removed Upper-Right Locator Barcode and Human-Readable Locator Text on Cycle Count countsheets to prevent confusion across multi-locator pages.',
+      'Unmixed SKU Column: strictly renders product SKU without mixing locator tags into the SKU cell.',
+      'Added PRE COUNT Column: dedicated write-in field for initial pre-counts alongside FINAL COUNT.',
+      'Changed COUNT Column header to FINAL COUNT for clear audit demarcation.',
+      'Continuous Page-Filling (Multi-Locator Packing) for Cycle Count Sheets to eliminate blank bond paper waste.',
+      'Centralized Excel Import: single authoritative dataset shared across PCOUNT W2W and CYCLE COUNT without duplicate uploads.',
+      'Independent Layout & Print configurations for PCOUNT W2W and CYCLE COUNT with dedicated localStorage persistence.',
+      'All changes under version v2.0.7 officially credited to Richard Banquillo.',
+    ],
+    changes: [
+      { type: 'feature', text: 'Added dedicated CYCLE COUNT primary module with continuous fill' },
+      { type: 'feature', text: 'Added Scannable Barcode Line to Count Sheet LOCATOR column' },
+      { type: 'feature', text: 'Added PRE COUNT write-in column to Count Sheet' },
+      { type: 'improvement', text: 'Renamed COUNT Column to FINAL COUNT' },
+      { type: 'improvement', text: 'Standardized Count Sheet column sequence (# | LOCATOR | SKU | BARCODE | DESCRIPTION | PRE COUNT | FINAL COUNT)' },
+      { type: 'improvement', text: 'Removed Upper-Right Locator Barcode & Human-Readable Locator Text on Cycle Count countsheets' },
+      { type: 'fix', text: 'Separated SKU and Locator text (strictly unmixed under SKU column)' },
+      { type: 'feature', text: 'Implemented Central Shared Excel Import architecture' },
+      { type: 'improvement', text: 'Independent configuration persistence for PCOUNT W2W and CYCLE COUNT' },
+    ],
+    credit: {
+      feature: 'CYCLE COUNT Module & Count Sheet Workflow Enhancements',
+      description:
+        'Proposed and guided the dedicated CYCLE COUNT Module and Count Sheet workflow enhancements under DEC v2.0.7: continuous multi-locator page filling, dedicated LOCATOR table column with scannable barcode lines, removal of upper-right locator clutter, addition of PRE COUNT column, renaming COUNT to FINAL COUNT, standardizing sequence (# | LOCATOR | SKU | BARCODE | DESCRIPTION | PRE COUNT | FINAL COUNT), and separating SKU from locator text.',
+      suggestedBy: 'Richard Banquillo',
+      purpose: 'Optimize store cycle counting audits, eliminate bond paper waste, enable direct locator barcode scanning from sheets, and provide dedicated PRE COUNT and FINAL COUNT recording columns.',
+    },
+  },
+  {
     version: '2.0.6',
     releaseDate: 'September 28, 2026',
     releaseType: 'minor',

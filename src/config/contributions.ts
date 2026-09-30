@@ -41,6 +41,25 @@ export interface ContributionSummaryStats {
 
 export const INITIAL_CONTRIBUTORS: Contributor[] = [
   {
+    id: 'richard-banquillo',
+    name: 'Richard Banquillo',
+    contributions: [
+      {
+        id: 'contrib-v207-cycle-count',
+        feature: 'CYCLE COUNT Module & Count Sheet Workflow Enhancements',
+        version: 'v2.0.7',
+        type: 'Feature Suggestion / Process Improvement',
+        date: 'September 29, 2026',
+        description:
+          'Proposed and guided the dedicated CYCLE COUNT Module and Count Sheet workflow enhancements under DEC v2.0.7: continuous multi-locator page filling, dedicated LOCATOR table column with scannable barcode lines, removal of upper-right locator clutter to avoid confusion on mixed sheets, addition of PRE COUNT column, renaming COUNT to FINAL COUNT, standardizing sequence (# | LOCATOR | SKU | BARCODE | DESCRIPTION | PRE COUNT | FINAL COUNT), and separating SKU from locator text.',
+        purpose:
+          'Optimize periodic store cycle counting audits, eliminate bond paper waste with multi-locator continuous fill, enable handheld scanning of locator barcodes directly from sheets, provide dedicated PRE COUNT and FINAL COUNT writing columns, and strictly isolate SKU values.',
+        notes:
+          'All changes under version v2.0.7 officially credited to Richard Banquillo.',
+      },
+    ],
+  },
+  {
     id: 'diodito-de-los-santos-jr',
     name: 'Diodito De Los Santos Jr.',
     contributions: [

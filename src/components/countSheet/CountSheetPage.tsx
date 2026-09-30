@@ -76,15 +76,19 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
 
   // Column widths
   const colWidths = config.columnWidths || {
-    skuMm: 28,
-    barcodeMm: 42,
-    descMm: 88,
-    countMm: 34,
+    locatorMm: 28,
+    skuMm: 22,
+    barcodeMm: 36,
+    descMm: 55,
+    precountMm: 23,
+    countMm: 23,
   };
 
   // Reorderable Columns
   const activeColumns = useMemo<CountSheetColumnId[]>(() => {
-    const defaultOrder: CountSheetColumnId[] = ['sku', 'barcode', 'description', 'count'];
+    const defaultOrder: CountSheetColumnId[] = config.mixLocators
+      ? ['locator', 'sku', 'barcode', 'description', 'precount', 'count']
+      : ['sku', 'barcode', 'description', 'count'];
     const order = config.columnOrder && config.columnOrder.length > 0
       ? config.columnOrder
       : defaultOrder;
@@ -95,7 +99,7 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
       }
       return true;
     });
-  }, [config.columnOrder, config.columnVisibility]);
+  }, [config.columnOrder, config.columnVisibility, config.mixLocators]);
 
   // Table Border & Line Calculations
   const borderEnabled = config.tableBorderEnabled !== false;
@@ -218,26 +222,29 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
               : 'items-end text-right'
           }`}
         >
-          <div className="flex items-center gap-1.5">
-            <span
-              className="font-bold text-zinc-500 uppercase tracking-wider"
-              style={{ fontSize: `${Math.max(7, 8 * scale)}pt` }}
-            >
-              LOCATOR:
-            </span>
-            <span
-              className="font-black font-mono text-zinc-950 px-2 py-0.5 border-2 border-zinc-950 bg-zinc-50 rounded-xs tracking-wider"
-              style={{
-                fontSize: `${Math.max(11, 13 * scale)}pt`,
-                fontFamily: 'monospace',
-              }}
-            >
-              {pageData.locator || 'UNASSIGNED'}
-            </span>
-          </div>
+          {/* Human-Readable Locator Text (Hidden on CYCLE COUNT / mixLocators or if showLocatorText is false) */}
+          {!config.mixLocators && config.showLocatorText !== false && (
+            <div className="flex items-center gap-1.5">
+              <span
+                className="font-bold text-zinc-500 uppercase tracking-wider"
+                style={{ fontSize: `${Math.max(7, 8 * scale)}pt` }}
+              >
+                LOCATOR:
+              </span>
+              <span
+                className="font-black font-mono text-zinc-950 px-2 py-0.5 border-2 border-zinc-950 bg-zinc-50 rounded-xs tracking-wider"
+                style={{
+                  fontSize: `${Math.max(11, 13 * scale)}pt`,
+                  fontFamily: 'monospace',
+                }}
+              >
+                {pageData.locator || 'UNASSIGNED'}
+              </span>
+            </div>
+          )}
 
-          {/* Scannable Locator Barcode with guaranteed optical quiet zones */}
-          {locatorBarcodeSvg && (
+          {/* Scannable Locator Barcode (Hidden on CYCLE COUNT / mixLocators or if showLocatorBarcode is false) */}
+          {!config.mixLocators && config.showLocatorBarcode && locatorBarcodeSvg && (
             <div
               className="mt-1 flex flex-col bg-white"
               title={`Locator Barcode: ${pageData.locator}`}
@@ -245,16 +252,24 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
             />
           )}
 
-          {/* Page Info under locator */}
+          {/* Page / Sheet Info */}
           <div
             className="text-[9px] font-bold text-zinc-600 mt-1"
             style={{ fontFamily: bodyFont }}
           >
-            PAGE {pageData.pageNumber} OF {pageData.totalPagesForLocator}
-            {pageData.totalGlobalPages > pageData.totalPagesForLocator && (
-              <span className="text-zinc-400 ml-1">
-                (SHEET {pageData.globalPageIndex}/{pageData.totalGlobalPages})
+            {config.mixLocators ? (
+              <span className="font-mono text-zinc-800 tracking-wide font-black">
+                SHEET {pageData.globalPageIndex} OF {pageData.totalGlobalPages}
               </span>
+            ) : (
+              <>
+                PAGE {pageData.pageNumber} OF {pageData.totalPagesForLocator}
+                {pageData.totalGlobalPages > pageData.totalPagesForLocator && (
+                  <span className="text-zinc-400 ml-1">
+                    (SHEET {pageData.globalPageIndex}/{pageData.totalGlobalPages})
+                  </span>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -294,6 +309,22 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
               {activeColumns.map((colId, colIdx) => {
                 const isLast = colIdx === activeColumns.length - 1;
                 const rightBorder = isLast ? 'none' : innerVerticalBorder;
+
+                if (colId === 'locator') {
+                  return (
+                    <th
+                      key="th-locator"
+                      className={`px-2 py-1 font-black uppercase text-zinc-950 tracking-wider text-center`}
+                      style={{
+                        width: `${(colWidths.locatorMm || 28) * scale}mm`,
+                        fontSize: `${Math.max(7, config.headerFontSizePt * scale)}pt`,
+                        borderRight: rightBorder,
+                      }}
+                    >
+                      LOCATOR
+                    </th>
+                  );
+                }
 
                 if (colId === 'sku') {
                   return (
@@ -343,6 +374,22 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
                   );
                 }
 
+                if (colId === 'precount') {
+                  return (
+                    <th
+                      key="th-precount"
+                      className="px-2 py-1 font-black uppercase text-zinc-950 tracking-wider text-center bg-zinc-100"
+                      style={{
+                        width: `${(colWidths.precountMm || 23) * scale}mm`,
+                        fontSize: `${Math.max(8, (config.countHeaderFontSizePt || 9) * scale)}pt`,
+                        borderRight: rightBorder,
+                      }}
+                    >
+                      PRE COUNT
+                    </th>
+                  );
+                }
+
                 if (colId === 'count') {
                   return (
                     <th
@@ -354,7 +401,7 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
                         borderRight: rightBorder,
                       }}
                     >
-                      COUNT
+                      FINAL COUNT
                     </th>
                   );
                 }
@@ -410,6 +457,49 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
                   {activeColumns.map((colId, colIdx) => {
                     const isLast = colIdx === activeColumns.length - 1;
                     const rightBorder = isLast ? 'none' : innerVerticalBorder;
+
+                    if (colId === 'locator') {
+                      const locVal = String(item.locator || '').trim();
+                      const locBarcodeSvg =
+                        locVal && locVal !== 'UNASSIGNED'
+                          ? generateBarcodeSvgString(
+                              locVal,
+                              config.locatorBarcodeFormat || 'CODE128',
+                              Math.max(14, Math.round((config.barcodeHeightMm || 7.5) * 2.8 * scale)),
+                              true,
+                              Math.max(6, Math.round((config.barcodeTextFontSizePt || 7) * scale)),
+                              (colWidths.locatorMm || 28) * scale
+                            )
+                          : '';
+
+                      return (
+                        <td
+                          key={`cell-locator-${idx}`}
+                          className="px-1 py-0.5 overflow-hidden text-center"
+                          style={{
+                            width: `${(colWidths.locatorMm || 28) * scale}mm`,
+                            height: `${config.rowHeightMm * scale}mm`,
+                            borderRight: rightBorder,
+                          }}
+                        >
+                          {locBarcodeSvg ? (
+                            <div
+                              className="w-full flex flex-col items-center justify-center overflow-hidden max-h-full [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:h-auto"
+                              dangerouslySetInnerHTML={{ __html: locBarcodeSvg }}
+                            />
+                          ) : (
+                            <span
+                              className="font-mono font-bold text-zinc-950 tracking-wider"
+                              style={{
+                                fontSize: `${Math.max(7, (config.skuFontSizePt || 8.5) * scale)}pt`,
+                              }}
+                            >
+                              {locVal || '-'}
+                            </span>
+                          )}
+                        </td>
+                      );
+                    }
 
                     if (colId === 'sku') {
                       return (
@@ -483,6 +573,24 @@ export const CountSheetPage: React.FC<CountSheetPageProps> = ({
                             title={item.description}
                           >
                             {item.description || '-'}
+                          </div>
+                        </td>
+                      );
+                    }
+
+                    if (colId === 'precount') {
+                      return (
+                        <td
+                          key={`cell-precount-${idx}`}
+                          className="px-2 py-0.5 text-center relative bg-white"
+                          style={{
+                            width: `${(colWidths.precountMm || 23) * scale}mm`,
+                            height: `${config.rowHeightMm * scale}mm`,
+                            borderRight: rightBorder,
+                          }}
+                        >
+                          <div className="w-full h-full flex items-center justify-center pointer-events-none select-none">
+                            <span className="w-4/5 border-b border-zinc-200/80 inline-block h-2" />
                           </div>
                         </td>
                       );

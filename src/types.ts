@@ -104,7 +104,7 @@ export interface InventorySession {
 
 export type AppStep = 'import' | 'validate' | 'configure' | 'preview' | 'settings' | 'count_sheet';
 
-export type AppModuleId = 'count_tag' | 'shelftag_pp';
+export type AppModuleId = 'count_tag' | 'shelftag_pp' | 'cycle_count';
 
 export type ShelfTagStyle = 'white' | 'yellow';
 
@@ -371,12 +371,14 @@ export interface SystemSettings {
 // MODULE 1: COUNT SHEET TYPES
 // ----------------------------------------------------
 
-export type CountSheetColumnId = 'sku' | 'barcode' | 'description' | 'count';
+export type CountSheetColumnId = 'locator' | 'sku' | 'barcode' | 'description' | 'precount' | 'count';
 
 export interface CountSheetColumnWidths {
+  locatorMm?: number;
   skuMm: number;
   barcodeMm: number;
   descMm: number;
+  precountMm?: number;
   countMm: number;
 }
 
@@ -433,6 +435,7 @@ export interface CountSheetConfig {
 
   // Locator Barcode (Upper Right)
   showLocatorBarcode: boolean;
+  showLocatorText?: boolean;
   locatorBarcodeFormat: BarcodeType;
   locatorBarcodeHeightMm: number;
   locatorBarcodeWidthScale: number;
@@ -469,6 +472,7 @@ export interface CountSheetConfig {
   showStoreHeader: boolean;
   showPageNumbers: boolean;
   emptyRowsToFillPage?: boolean;
+  mixLocators?: boolean; // v2.0.7: Allow multiple locators to share page (CYCLE COUNT continuous fill)
 }
 
 export interface CountSheetPreset {
@@ -485,6 +489,7 @@ export interface CountSheetPageData {
   globalPageIndex: number;
   totalGlobalPages: number;
   locator: string;
+  locators?: string[]; // Unique locators present on this page
   items: InventoryItem[];
   startIndex: number;
   endIndex: number;

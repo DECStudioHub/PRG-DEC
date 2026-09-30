@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   BarcodeType,
   CountSheetColumnId,
+  CountSheetColumnWidths,
   CountSheetConfig,
   CountSheetPreset,
   CountSheetSortField,
@@ -110,6 +111,7 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
   );
 
   const totalColWidthMm =
+    (config.columnWidths?.locatorMm || 26) +
     (config.columnWidths?.skuMm || 28) +
     (config.columnWidths?.barcodeMm || 42) +
     (config.columnWidths?.descMm || 88) +
@@ -125,7 +127,7 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
   };
 
   const handleUpdateColWidth = (
-    col: 'skuMm' | 'barcodeMm' | 'descMm' | 'countMm',
+    col: keyof CountSheetColumnWidths,
     value: number
   ) => {
     onUpdateConfig({
@@ -140,17 +142,23 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
   const handleAutoFitColumns = () => {
     // Proportional distribution within printable width
     const targetWidth = printableWidthMm - (config.showRowNumbers ? 6 : 0);
-    const sku = Math.round(targetWidth * 0.15);
-    const barcode = Math.round(targetWidth * 0.22);
-    const count = Math.round(targetWidth * 0.18);
-    const desc = Math.max(30, targetWidth - (sku + barcode + count));
+    const hasLocator = currentColumnOrder.includes('locator') && (config.columnVisibility?.locator !== false);
+    const hasPrecount = currentColumnOrder.includes('precount') && (config.columnVisibility?.precount !== false);
+    const locator = hasLocator ? Math.round(targetWidth * 0.15) : 0;
+    const sku = Math.round(targetWidth * 0.12);
+    const barcode = Math.round(targetWidth * 0.19);
+    const precount = hasPrecount ? Math.round(targetWidth * 0.13) : 0;
+    const count = Math.round(targetWidth * 0.13);
+    const desc = Math.max(30, targetWidth - (locator + sku + barcode + precount + count));
 
     onUpdateConfig({
       ...config,
       columnWidths: {
+        locatorMm: locator || 28,
         skuMm: sku,
         barcodeMm: barcode,
         descMm: desc,
+        precountMm: precount || 23,
         countMm: count,
       },
     });
@@ -160,7 +168,9 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
   const currentColumnOrder: CountSheetColumnId[] =
     config.columnOrder && config.columnOrder.length > 0
       ? config.columnOrder
-      : ['sku', 'barcode', 'description', 'count'];
+      : (config.mixLocators
+          ? ['locator', 'sku', 'barcode', 'description', 'precount', 'count']
+          : ['sku', 'barcode', 'description', 'count']);
 
   const handleMoveColumn = (index: number, direction: 'left' | 'right') => {
     const targetIndex = direction === 'left' ? index - 1 : index + 1;
@@ -174,9 +184,11 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
 
   const handleToggleColumnVisibility = (colId: CountSheetColumnId) => {
     const currentVis = config.columnVisibility || {
+      locator: true,
       sku: true,
       barcode: true,
       description: true,
+      precount: true,
       count: true,
     };
     handleUpdate('columnVisibility', {
@@ -186,20 +198,27 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
   };
 
   const handleResetColumnOrder = () => {
-    handleUpdate('columnOrder', ['sku', 'barcode', 'description', 'count']);
+    const resetOrder: CountSheetColumnId[] = config.mixLocators
+      ? ['locator', 'sku', 'barcode', 'description', 'precount', 'count']
+      : ['sku', 'barcode', 'description', 'count'];
+    handleUpdate('columnOrder', resetOrder);
     handleUpdate('columnVisibility', {
+      locator: true,
       sku: true,
       barcode: true,
       description: true,
+      precount: true,
       count: true,
     });
   };
 
   const columnMeta: Record<CountSheetColumnId, { label: string; desc: string }> = {
+    locator: { label: 'LOCATOR', desc: 'Scannable barcode & location' },
     sku: { label: 'SKU', desc: 'Stock identifier' },
     barcode: { label: 'BARCODE', desc: 'Scannable barcode & numbers' },
     description: { label: 'DESCRIPTION', desc: 'Item name & details' },
-    count: { label: 'COUNT', desc: 'Handwriting entry box' },
+    precount: { label: 'PRE COUNT', desc: 'Pre-count write-in area' },
+    count: { label: 'FINAL COUNT', desc: 'Final verified count write-in' },
   };
 
   return (
@@ -742,6 +761,29 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
               </div>
             </div>
 
+            {/* Continuous Multi-Locator Page-Filling (Cycle Count Mode / Paper Saver) */}
+            <div className="pt-2 border-t border-zinc-200">
+              <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-emerald-700" />
+                    <span className="font-bold text-zinc-900 text-xs">Continuous Page-Filling (Paper Saver)</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(config.mixLocators)}
+                    onChange={e => handleUpdate('mixLocators', e.target.checked)}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                </div>
+                <p className="text-[11px] text-emerald-900 leading-snug">
+                  {config.mixLocators
+                    ? 'Active: Consecutive locators share the sheet up to maximum rows, eliminating blank rows between locators (optimized for CYCLE COUNT audits).'
+                    : 'Disabled: Each locator starts on a fresh sheet (standard PCOUNT W2W Wall-to-Wall behavior).'}
+                </p>
+              </div>
+            </div>
+
             {/* Ink-Saving print mode indicator */}
             <div className="pt-2 border-t border-zinc-100 flex items-center justify-between">
               <div>
@@ -887,6 +929,24 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
                 )}
               </div>
 
+              {/* LOCATOR Column Width */}
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <label className="font-bold text-zinc-700">LOCATOR Width</label>
+                  <span className="font-mono text-zinc-900 font-bold">
+                    {config.columnWidths.locatorMm || 26} mm
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="15"
+                  max="60"
+                  value={config.columnWidths.locatorMm || 26}
+                  onChange={e => handleUpdateColWidth('locatorMm', Number(e.target.value))}
+                  className="w-full accent-emerald-600"
+                />
+              </div>
+
               {/* SKU Column Width */}
               <div className="space-y-1">
                 <div className="flex justify-between">
@@ -941,24 +1001,42 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
                 />
               </div>
 
-              {/* COUNT Column Width (Writing Area) */}
+              {/* PRE COUNT Column Width (Writing Area) */}
               <div className="space-y-1">
                 <div className="flex justify-between">
-                  <label className="font-bold text-zinc-700">COUNT Writing Box Width</label>
+                  <label className="font-bold text-zinc-700">PRE COUNT Writing Box Width</label>
+                  <span className="font-mono text-zinc-900 font-bold">
+                    {config.columnWidths.precountMm || 23} mm
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min="15"
+                  max="60"
+                  value={config.columnWidths.precountMm || 23}
+                  onChange={e => handleUpdateColWidth('precountMm', Number(e.target.value))}
+                  className="w-full accent-emerald-600"
+                />
+              </div>
+
+              {/* FINAL COUNT Column Width (Writing Area) */}
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <label className="font-bold text-zinc-700">FINAL COUNT Writing Box Width</label>
                   <span className="font-mono text-emerald-800 font-bold">
                     {config.columnWidths.countMm} mm
                   </span>
                 </div>
                 <input
                   type="range"
-                  min="20"
+                  min="15"
                   max="70"
                   value={config.columnWidths.countMm}
                   onChange={e => handleUpdateColWidth('countMm', Number(e.target.value))}
                   className="w-full accent-emerald-600"
                 />
                 <span className="text-[10px] text-zinc-500">
-                  Wider COUNT column makes it easier for manual handwritten counts.
+                  Wider columns make it easier for fast manual handwritten count entry.
                 </span>
               </div>
 
@@ -1418,142 +1496,170 @@ export const CountSheetConfigPanel: React.FC<CountSheetConfigPanelProps> = ({
               )}
             </div>
 
-            {/* Upper-Right Locator Barcode */}
-            <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-2.5">
-              <span className="font-bold text-zinc-900 uppercase tracking-wider text-[10px]">
-                UPPER-RIGHT LOCATOR BARCODE
-              </span>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-zinc-800">Show Locator Barcode</span>
-                  <p className="text-[10px] text-zinc-500">
-                    Dedicated optical quiet zones ensure 100% readability on handheld scanners
-                  </p>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={config.showLocatorBarcode}
-                  onChange={e => handleUpdate('showLocatorBarcode', e.target.checked)}
-                  className="w-4 h-4 accent-emerald-600 rounded"
-                />
+            {/* Upper-Right Locator Barcode & Header Text (Removed in CYCLE COUNT continuous fill mode since Locator is a table column) */}
+            {config.mixLocators ? (
+              <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-1.5">
+                <span className="font-bold text-zinc-900 uppercase tracking-wider text-[10px]">
+                  LOCATOR DISPLAY (CYCLE COUNT MODE)
+                </span>
+                <p className="text-[11px] text-zinc-600 leading-relaxed">
+                  Upper-right locator header & barcode are removed in Cycle Count mode. Instead, each row includes a dedicated <strong>LOCATOR</strong> column with scannable barcode lines for continuous multi-locator page auditing.
+                </p>
               </div>
+            ) : (
+              <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-lg space-y-2.5">
+                <span className="font-bold text-zinc-900 uppercase tracking-wider text-[10px]">
+                  UPPER-RIGHT LOCATOR HEADER & BARCODE
+                </span>
 
-              {config.showLocatorBarcode && (
-                <>
-                  {/* Locator Barcode Format */}
+                {/* Show Locator Text */}
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="block font-semibold text-zinc-700 mb-1">
-                      Locator Symbology / Format
-                    </label>
-                    <select
-                      value={config.locatorBarcodeFormat || 'CODE128'}
-                      onChange={e =>
-                        handleUpdate('locatorBarcodeFormat', e.target.value as BarcodeType)
-                      }
-                      className="w-full px-2 py-1 border border-zinc-300 rounded bg-white"
-                    >
-                      <option value="CODE128">CODE 128 (Recommended for Locators like BA-A1-B2L1)</option>
-                      <option value="CODE39">CODE 39</option>
-                    </select>
+                    <span className="font-bold text-zinc-800">Show Human-Readable Locator Text</span>
+                    <p className="text-[10px] text-zinc-500">
+                      Display LOCATOR code box in the top-right header area
+                    </p>
                   </div>
+                  <input
+                    type="checkbox"
+                    checked={config.showLocatorText !== false}
+                    onChange={e => handleUpdate('showLocatorText', e.target.checked)}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                </div>
 
-                  {/* Height */}
+                {/* Show Locator Barcode */}
+                <div className="flex items-center justify-between pt-2 border-t border-zinc-200">
                   <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="font-semibold text-zinc-700">Locator Barcode Height</label>
-                      <span className="font-mono text-zinc-900 font-bold">
-                        {config.locatorBarcodeHeightMm} mm
-                      </span>
+                    <span className="font-bold text-zinc-800">Show Locator Barcode</span>
+                    <p className="text-[10px] text-zinc-500">
+                      Dedicated optical quiet zones ensure 100% readability on handheld scanners
+                    </p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={config.showLocatorBarcode}
+                    onChange={e => handleUpdate('showLocatorBarcode', e.target.checked)}
+                    className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
+                  />
+                </div>
+
+                {config.showLocatorBarcode && (
+                  <>
+                    {/* Locator Barcode Format */}
+                    <div>
+                      <label className="block font-semibold text-zinc-700 mb-1">
+                        Locator Symbology / Format
+                      </label>
+                      <select
+                        value={config.locatorBarcodeFormat || 'CODE128'}
+                        onChange={e =>
+                          handleUpdate('locatorBarcodeFormat', e.target.value as BarcodeType)
+                        }
+                        className="w-full px-2 py-1 border border-zinc-300 rounded bg-white"
+                      >
+                        <option value="CODE128">CODE 128 (Recommended for Locators like BA-A1-B2L1)</option>
+                        <option value="CODE39">CODE 39</option>
+                      </select>
                     </div>
-                    <input
-                      type="range"
-                      min="6"
-                      max="20"
-                      step="0.5"
-                      value={config.locatorBarcodeHeightMm}
-                      onChange={e => handleUpdate('locatorBarcodeHeightMm', Number(e.target.value))}
-                      className="w-full accent-emerald-600"
-                    />
-                  </div>
 
-                  {/* Width Scale */}
-                  <div>
-                    <div className="flex justify-between mb-1">
-                      <label className="font-semibold text-zinc-700">Bar Width Scale</label>
-                      <span className="font-mono text-zinc-900 font-bold">
-                        {config.locatorBarcodeWidthScale || 1.5}x
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min="1.0"
-                      max="2.2"
-                      step="0.1"
-                      value={config.locatorBarcodeWidthScale || 1.5}
-                      onChange={e => handleUpdate('locatorBarcodeWidthScale', Number(e.target.value))}
-                      className="w-full accent-emerald-600"
-                    />
-                    <span className="text-[10px] text-zinc-500">
-                      1.4x – 1.6x ensures optimal narrow bar thickness for red laser beams.
-                    </span>
-                  </div>
-
-                  {/* Show Text */}
-                  <div className="flex items-center justify-between">
-                    <span className="font-semibold text-zinc-700">Show Human-Readable Locator Text</span>
-                    <input
-                      type="checkbox"
-                      checked={config.showLocatorBarcodeText !== false}
-                      onChange={e => handleUpdate('showLocatorBarcodeText', e.target.checked)}
-                      className="w-4 h-4 accent-emerald-600 rounded"
-                    />
-                  </div>
-
-                  {/* Text Size */}
-                  {config.showLocatorBarcodeText !== false && (
+                    {/* Height */}
                     <div>
                       <div className="flex justify-between mb-1">
-                        <label className="font-semibold text-zinc-700">Locator Text Size</label>
+                        <label className="font-semibold text-zinc-700">Locator Barcode Height</label>
                         <span className="font-mono text-zinc-900 font-bold">
-                          {config.locatorBarcodeTextSizePt || 8} pt
+                          {config.locatorBarcodeHeightMm} mm
                         </span>
                       </div>
                       <input
                         type="range"
                         min="6"
-                        max="12"
+                        max="20"
                         step="0.5"
-                        value={config.locatorBarcodeTextSizePt || 8}
-                        onChange={e => handleUpdate('locatorBarcodeTextSizePt', Number(e.target.value))}
+                        value={config.locatorBarcodeHeightMm}
+                        onChange={e => handleUpdate('locatorBarcodeHeightMm', Number(e.target.value))}
                         className="w-full accent-emerald-600"
                       />
                     </div>
-                  )}
 
-                  {/* Alignment */}
-                  <div>
-                    <label className="block font-semibold text-zinc-700 mb-1">Alignment</label>
-                    <div className="flex border border-zinc-300 rounded overflow-hidden">
-                      {(['left', 'center', 'right'] as const).map(align => (
-                        <button
-                          key={align}
-                          type="button"
-                          onClick={() => handleUpdate('locatorBarcodeAlign', align)}
-                          className={`flex-1 py-1 text-center font-bold text-xs cursor-pointer ${
-                            (config.locatorBarcodeAlign || 'right') === align
-                              ? 'bg-emerald-700 text-white'
-                              : 'bg-white text-zinc-600 hover:bg-zinc-100'
-                          }`}
-                        >
-                          {align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}
-                        </button>
-                      ))}
+                    {/* Width Scale */}
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <label className="font-semibold text-zinc-700">Bar Width Scale</label>
+                        <span className="font-mono text-zinc-900 font-bold">
+                          {config.locatorBarcodeWidthScale || 1.5}x
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1.0"
+                        max="2.2"
+                        step="0.1"
+                        value={config.locatorBarcodeWidthScale || 1.5}
+                        onChange={e => handleUpdate('locatorBarcodeWidthScale', Number(e.target.value))}
+                        className="w-full accent-emerald-600"
+                      />
+                      <span className="text-[10px] text-zinc-500">
+                        1.4x – 1.6x ensures optimal narrow bar thickness for red laser beams.
+                      </span>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
+
+                    {/* Show Text */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-zinc-700">Show Human-Readable Locator Text</span>
+                      <input
+                        type="checkbox"
+                        checked={config.showLocatorBarcodeText !== false}
+                        onChange={e => handleUpdate('showLocatorBarcodeText', e.target.checked)}
+                        className="w-4 h-4 accent-emerald-600 rounded"
+                      />
+                    </div>
+
+                    {/* Text Size */}
+                    {config.showLocatorBarcodeText !== false && (
+                      <div>
+                        <div className="flex justify-between mb-1">
+                          <label className="font-semibold text-zinc-700">Locator Text Size</label>
+                          <span className="font-mono text-zinc-900 font-bold">
+                            {config.locatorBarcodeTextSizePt || 8} pt
+                          </span>
+                        </div>
+                        <input
+                          type="range"
+                          min="6"
+                          max="12"
+                          step="0.5"
+                          value={config.locatorBarcodeTextSizePt || 8}
+                          onChange={e => handleUpdate('locatorBarcodeTextSizePt', Number(e.target.value))}
+                          className="w-full accent-emerald-600"
+                        />
+                      </div>
+                    )}
+
+                    {/* Alignment */}
+                    <div>
+                      <label className="block font-semibold text-zinc-700 mb-1">Alignment</label>
+                      <div className="flex border border-zinc-300 rounded overflow-hidden">
+                        {(['left', 'center', 'right'] as const).map(align => (
+                          <button
+                            key={align}
+                            type="button"
+                            onClick={() => handleUpdate('locatorBarcodeAlign', align)}
+                            className={`flex-1 py-1 text-center font-bold text-xs cursor-pointer ${
+                              (config.locatorBarcodeAlign || 'right') === align
+                                ? 'bg-emerald-700 text-white'
+                                : 'bg-white text-zinc-600 hover:bg-zinc-100'
+                            }`}
+                          >
+                            {align === 'left' ? 'Left' : align === 'center' ? 'Center' : 'Right'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -25,6 +25,7 @@ import {
   applyThemeToDocument,
 } from './utils/theme';
 import { ShelfTagPPModule } from './components/module2/ShelfTagPPModule';
+import { CycleCountModule } from './components/cycleCount/CycleCountModule';
 import { WelcomeModal } from './components/WelcomeModal';
 import { BackupRestoreModal } from './components/BackupRestoreModal';
 import { CreditContributionModal } from './components/CreditContributionModal';
@@ -84,7 +85,7 @@ export default function App() {
   const [activeModule, setActiveModule] = useState<AppModuleId>(() => {
     try {
       const saved = localStorage.getItem('inv_active_module');
-      if (saved === 'count_tag' || saved === 'shelftag_pp') {
+      if (saved === 'count_tag' || saved === 'shelftag_pp' || saved === 'cycle_count') {
         return saved;
       }
     } catch {}
@@ -474,6 +475,23 @@ export default function App() {
             }}
             onLoadSampleData={handleLoadSampleData}
             onSwitchToImport={() => {
+              setActiveModule('count_tag');
+              setCurrentStep('import');
+            }}
+          />
+        ) : activeModule === 'cycle_count' ? (
+          <CycleCountModule
+            items={items}
+            session={session}
+            settings={settings}
+            onUpdateItems={newItems => {
+              const revalidated = revalidateItems(newItems);
+              handleUpdateItems(newItems, revalidated);
+            }}
+            onLoadSampleData={handleLoadSampleData}
+            onDataLoaded={handleDataLoaded}
+            onUpdateSession={handleUpdateSession}
+            onSwitchToCentralImport={() => {
               setActiveModule('count_tag');
               setCurrentStep('import');
             }}

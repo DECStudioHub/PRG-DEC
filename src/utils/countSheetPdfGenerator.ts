@@ -45,7 +45,8 @@ export async function generateCountSheetPdf(
     config.rowsPerPage || 15,
     selectedLocator,
     config.sortField,
-    config.sortOrder
+    config.sortOrder,
+    Boolean(config.mixLocators)
   );
 
   if (pages.length === 0) {
@@ -79,7 +80,9 @@ export async function generateCountSheetPdf(
   const rowHeight = Math.max(6, Number(config.rowHeightMm) || 12);
 
   // Active columns in order
-  const defaultOrder: CountSheetColumnId[] = ['sku', 'barcode', 'description', 'count'];
+  const defaultOrder: CountSheetColumnId[] = config.mixLocators
+    ? ['locator', 'sku', 'barcode', 'description', 'precount', 'count']
+    : ['sku', 'barcode', 'description', 'count'];
   const baseOrder = config.columnOrder && config.columnOrder.length > 0 ? config.columnOrder : defaultOrder;
   const activeColumns: CountSheetColumnId[] = baseOrder.filter(colId => {
     return !config.columnVisibility || config.columnVisibility[colId] !== false;
@@ -87,10 +90,12 @@ export async function generateCountSheetPdf(
 
   // Calculate Column Widths proportionally to fit printableWidth
   const rawColWidths = config.columnWidths || {
-    skuMm: 28,
-    barcodeMm: 42,
-    descMm: 88,
-    countMm: 34,
+    locatorMm: 28,
+    skuMm: 22,
+    barcodeMm: 36,
+    descMm: 55,
+    precountMm: 23,
+    countMm: 23,
   };
 
   const rowNumWidth = config.showRowNumbers !== false ? 7 : 0;
@@ -98,10 +103,12 @@ export async function generateCountSheetPdf(
 
   const sumRawWidths = activeColumns.reduce((acc, colId) => {
     switch (colId) {
-      case 'sku': return acc + (rawColWidths.skuMm || 28);
-      case 'barcode': return acc + (rawColWidths.barcodeMm || 42);
-      case 'description': return acc + (rawColWidths.descMm || 88);
-      case 'count': return acc + (rawColWidths.countMm || 34);
+      case 'locator': return acc + (rawColWidths.locatorMm || 28);
+      case 'sku': return acc + (rawColWidths.skuMm || 22);
+      case 'barcode': return acc + (rawColWidths.barcodeMm || 36);
+      case 'description': return acc + (rawColWidths.descMm || 55);
+      case 'precount': return acc + (rawColWidths.precountMm || 23);
+      case 'count': return acc + (rawColWidths.countMm || 23);
       default: return acc + 25;
     }
   }, 0);
@@ -110,10 +117,12 @@ export async function generateCountSheetPdf(
   const colWidthsMap: Record<string, number> = {};
   activeColumns.forEach(colId => {
     let raw = 25;
-    if (colId === 'sku') raw = rawColWidths.skuMm || 28;
-    else if (colId === 'barcode') raw = rawColWidths.barcodeMm || 42;
-    else if (colId === 'description') raw = rawColWidths.descMm || 88;
-    else if (colId === 'count') raw = rawColWidths.countMm || 34;
+    if (colId === 'locator') raw = rawColWidths.locatorMm || 28;
+    else if (colId === 'sku') raw = rawColWidths.skuMm || 22;
+    else if (colId === 'barcode') raw = rawColWidths.barcodeMm || 36;
+    else if (colId === 'description') raw = rawColWidths.descMm || 55;
+    else if (colId === 'precount') raw = rawColWidths.precountMm || 23;
+    else if (colId === 'count') raw = rawColWidths.countMm || 23;
     colWidthsMap[colId] = Number((raw * scaleFactor).toFixed(2));
   });
 
@@ -241,34 +250,37 @@ export async function generateCountSheetPdf(
       doc.text(session.preparedBy, metaX, metaY);
     }
 
-    // Upper-Right: LOCATOR & SCANNER-READABLE BARCODE
+    // Upper-Right: LOCATOR & SCANNER-READABLE BARCODE (Omitted on CYCLE COUNT / mixLocators)
     const rightColWidth = 52;
     const rightColX = marginLeft + printableWidth - rightColWidth;
+    const isCycleCountMode = Boolean(config.mixLocators);
 
-    // Locator text box
+    // Locator text box (Hidden in CYCLE COUNT / mixLocators or if showLocatorText is false)
     const cleanLocator = String(pageData.locator || 'UNASSIGNED').trim();
-    doc.setFontSize(7.5);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 116, 139);
-    doc.text('LOCATOR:', rightColX, headerTopY + 3.5);
+    if (!isCycleCountMode && config.showLocatorText !== false) {
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(100, 116, 139);
+      doc.text('LOCATOR:', rightColX, headerTopY + 3.5);
 
-    const locLabelWidth = doc.getTextWidth('LOCATOR: ');
-    const locBoxX = rightColX + locLabelWidth;
-    const locBoxWidth = rightColWidth - locLabelWidth;
+      const locLabelWidth = doc.getTextWidth('LOCATOR: ');
+      const locBoxX = rightColX + locLabelWidth;
+      const locBoxWidth = rightColWidth - locLabelWidth;
 
-    doc.setDrawColor(15, 23, 42);
-    doc.setLineWidth(0.4);
-    doc.setFillColor(248, 250, 252);
-    doc.rect(locBoxX, headerTopY, locBoxWidth, 5, 'FD');
+      doc.setDrawColor(15, 23, 42);
+      doc.setLineWidth(0.4);
+      doc.setFillColor(248, 250, 252);
+      doc.rect(locBoxX, headerTopY, locBoxWidth, 5, 'FD');
 
-    doc.setFont('courier', 'bold');
-    doc.setFontSize(9.5);
-    doc.setTextColor(15, 23, 42);
-    doc.text(cleanLocator, locBoxX + locBoxWidth / 2, headerTopY + 3.7, { align: 'center' });
+      doc.setFont('courier', 'bold');
+      doc.setFontSize(9.5);
+      doc.setTextColor(15, 23, 42);
+      doc.text(cleanLocator, locBoxX + locBoxWidth / 2, headerTopY + 3.7, { align: 'center' });
+    }
 
-    // Locator Barcode
-    let headerHeightUsed = 13;
-    if (config.showLocatorBarcode !== false && cleanLocator && cleanLocator !== 'UNASSIGNED') {
+    // Locator Barcode (Hidden in CYCLE COUNT / mixLocators or if showLocatorBarcode is false)
+    let headerHeightUsed = isCycleCountMode ? 8 : 13;
+    if (!isCycleCountMode && config.showLocatorBarcode && cleanLocator && cleanLocator !== 'UNASSIGNED') {
       let locDataUrl = locatorBarcodeCache.get(cleanLocator);
       if (locDataUrl === undefined) {
         locDataUrl = generateLocatorBarcodeDataUrl(
@@ -295,15 +307,16 @@ export async function generateCountSheetPdf(
       }
     }
 
-    // Page count indicator (e.g. PAGE 1 OF 2 (SHEET 1/4))
+    // Page count indicator (e.g. SHEET 1 OF 4 in Cycle Count or PAGE 1 OF 2 in PCount)
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.setTextColor(100, 116, 139);
-    let pageStr = `PAGE ${pageData.pageNumber} OF ${pageData.totalPagesForLocator}`;
-    if (pageData.totalGlobalPages > pageData.totalPagesForLocator) {
-      pageStr += ` (SHEET ${pageData.globalPageIndex}/${pageData.totalGlobalPages})`;
-    }
-    doc.text(pageStr, marginLeft + printableWidth, headerTopY + headerHeightUsed - 0.5, { align: 'right' });
+    doc.setFontSize(7.5);
+    doc.setTextColor(71, 85, 105);
+    const pageStr = isCycleCountMode
+      ? `SHEET ${pageData.globalPageIndex} OF ${pageData.totalGlobalPages}`
+      : (pageData.totalGlobalPages > pageData.totalPagesForLocator
+          ? `PAGE ${pageData.pageNumber} OF ${pageData.totalPagesForLocator} (SHEET ${pageData.globalPageIndex}/${pageData.totalGlobalPages})`
+          : `PAGE ${pageData.pageNumber} OF ${pageData.totalPagesForLocator}`);
+    doc.text(pageStr, marginLeft + printableWidth, headerTopY + (isCycleCountMode ? 4 : headerHeightUsed - 0.5), { align: 'right' });
 
     // Header bottom line
     currentY = headerTopY + headerHeightUsed + 1;
@@ -349,7 +362,10 @@ export async function generateCountSheetPdf(
         let colTitle = 'COLUMN';
         let align: 'left' | 'center' | 'right' = 'left';
 
-        if (colId === 'sku') {
+        if (colId === 'locator') {
+          colTitle = 'LOCATOR';
+          align = 'center';
+        } else if (colId === 'sku') {
           colTitle = 'SKU';
           align = config.tableHeaderAlign === 'center' ? 'center' : 'left';
         } else if (colId === 'barcode') {
@@ -358,8 +374,11 @@ export async function generateCountSheetPdf(
         } else if (colId === 'description') {
           colTitle = 'DESCRIPTION';
           align = config.tableHeaderAlign === 'center' ? 'center' : 'left';
+        } else if (colId === 'precount') {
+          colTitle = 'PRE COUNT';
+          align = 'center';
         } else if (colId === 'count') {
-          colTitle = 'COUNT';
+          colTitle = 'FINAL COUNT';
           align = 'center';
         }
 
@@ -417,7 +436,49 @@ export async function generateCountSheetPdf(
           const colW = colWidthsMap[colId];
           const isLast = cIdx === activeColumns.length - 1;
 
-          if (colId === 'sku') {
+          if (colId === 'locator') {
+            const locVal = String(item.locator || '').trim();
+            if (locVal && locVal !== 'UNASSIGNED') {
+              let locDataUrl = locatorBarcodeCache.get(locVal);
+              if (locDataUrl === undefined) {
+                locDataUrl = generateBarcodeDataUrl(
+                  locVal,
+                  config.locatorBarcodeFormat || 'CODE128',
+                  36,
+                  true,
+                  7,
+                  colW
+                );
+                locatorBarcodeCache.set(locVal, locDataUrl);
+              }
+
+              if (locDataUrl) {
+                const bcH = Math.min(rowHeight - 2, Math.max(4, (config.barcodeHeightMm || 7.5)));
+                const targetW = Number(config.barcodeWidthMm) > 0 ? Number(config.barcodeWidthMm) : 26;
+                const bcW = Math.min(colW - 2, Math.max(10, targetW));
+                const bcX = rowColX + (colW - bcW) / 2;
+                const bcY = rowY + (rowHeight - bcH) / 2;
+                try {
+                  doc.addImage(locDataUrl, 'PNG', bcX, bcY, bcW, bcH);
+                } catch {
+                  doc.setFont('courier', 'bold');
+                  doc.setFontSize(Math.max(7, Number(config.skuFontSizePt) || 8.5));
+                  doc.setTextColor(15, 23, 42);
+                  doc.text(locVal, rowColX + colW / 2, rowY + (rowHeight / 2) + 1.2, { align: 'center' });
+                }
+              } else {
+                doc.setFont('courier', 'bold');
+                doc.setFontSize(Math.max(7, Number(config.skuFontSizePt) || 8.5));
+                doc.setTextColor(15, 23, 42);
+                doc.text(locVal, rowColX + colW / 2, rowY + (rowHeight / 2) + 1.2, { align: 'center' });
+              }
+            } else {
+              doc.setFont('courier', 'bold');
+              doc.setFontSize(Math.max(7, Number(config.skuFontSizePt) || 8.5));
+              doc.setTextColor(15, 23, 42);
+              doc.text(locVal || '-', rowColX + colW / 2, rowY + (rowHeight / 2) + 1.2, { align: 'center' });
+            }
+          } else if (colId === 'sku') {
             doc.setFont('courier', 'bold');
             doc.setFontSize(Math.max(7, Number(config.skuFontSizePt) || 8.5));
             doc.setTextColor(15, 23, 42);
@@ -469,7 +530,7 @@ export async function generateCountSheetPdf(
             } else {
               doc.text(lines.slice(0, 2), rowColX + 2, rowY + (rowHeight / 2) - 0.5);
             }
-          } else if (colId === 'count') {
+          } else if (colId === 'precount' || colId === 'count') {
             // Handwriting blank field with subtle line
             doc.setDrawColor(203, 213, 225); // slate-300
             doc.setLineWidth(0.2);

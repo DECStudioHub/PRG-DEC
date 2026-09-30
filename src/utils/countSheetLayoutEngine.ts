@@ -20,9 +20,29 @@ export const DEFAULT_COUNT_SHEET_COLUMN_ORDER: CountSheetColumnId[] = [
 ];
 
 export const DEFAULT_COUNT_SHEET_COLUMN_VISIBILITY: Record<CountSheetColumnId, boolean> = {
+  locator: true,
   sku: true,
   barcode: true,
   description: true,
+  precount: true,
+  count: true,
+};
+
+export const DEFAULT_CYCLE_COUNT_SHEET_COLUMN_ORDER: CountSheetColumnId[] = [
+  'locator',
+  'sku',
+  'barcode',
+  'description',
+  'precount',
+  'count',
+];
+
+export const DEFAULT_CYCLE_COUNT_SHEET_COLUMN_VISIBILITY: Record<CountSheetColumnId, boolean> = {
+  locator: true,
+  sku: true,
+  barcode: true,
+  description: true,
+  precount: true,
   count: true,
 };
 
@@ -39,6 +59,7 @@ export const DEFAULT_COUNT_SHEET_CONFIG: CountSheetConfig = {
   rowHeightMm: 12, // Default 12 mm height as requested
   tableWidthPercent: 100,
   columnWidths: {
+    locatorMm: 26,
     skuMm: 28,
     barcodeMm: 42,
     descMm: 88,
@@ -77,6 +98,7 @@ export const DEFAULT_COUNT_SHEET_CONFIG: CountSheetConfig = {
 
   // Locator Barcode (Upper-Right) - Scanner Optimized Defaults
   showLocatorBarcode: true,
+  showLocatorText: true,
   locatorBarcodeHeightMm: 11,
   locatorBarcodeWidthScale: 1.5,
   locatorBarcodeFormat: 'CODE128',
@@ -113,6 +135,25 @@ export const DEFAULT_COUNT_SHEET_CONFIG: CountSheetConfig = {
   showStoreHeader: true,
   showPageNumbers: true,
   emptyRowsToFillPage: false,
+  mixLocators: false,
+};
+
+export const DEFAULT_CYCLE_COUNT_SHEET_CONFIG: CountSheetConfig = {
+  ...DEFAULT_COUNT_SHEET_CONFIG,
+  mixLocators: true,
+  showLocatorBarcode: false, // User requested: Remove upper-right locator barcode on CYCLE COUNT Countsheet
+  showLocatorText: false,    // User requested: Remove upper-right human-readable locator text
+  showLocatorBarcodeText: false,
+  columnOrder: [...DEFAULT_CYCLE_COUNT_SHEET_COLUMN_ORDER], // User requested: Add Column for Locator
+  columnVisibility: { ...DEFAULT_CYCLE_COUNT_SHEET_COLUMN_VISIBILITY },
+  columnWidths: {
+    locatorMm: 28,
+    skuMm: 22,
+    barcodeMm: 36,
+    descMm: 55,
+    precountMm: 23,
+    countMm: 23,
+  },
 };
 
 export const DEFAULT_COUNT_SHEET_PRESETS: CountSheetPreset[] = [
@@ -312,20 +353,21 @@ export function sortInventoryItemsForCountSheet(
 }
 
 /**
- * Paginate items by locator and rowsPerPage, with optional locator grouping and sorting
+ * Paginate items by locator and rowsPerPage, with optional locator grouping, sorting,
+ * and continuous page filling (mixLocators) for CYCLE COUNT / paper saving.
  */
 export function paginateCountSheetItems(
   items: InventoryItem[],
   rowsPerPage: number = 20,
   filterLocator?: string | string[],
   sortField?: CountSheetSortField,
-  sortOrder?: CountSheetSortOrder
+  sortOrder?: CountSheetSortOrder,
+  mixLocators: boolean = false
 ): CountSheetPageData[] {
   const selectedItems = items.filter(it => it.isSelected !== false);
   const grouped = groupItemsByLocator(selectedItems);
   const pages: CountSheetPageData[] = [];
 
-  let globalPageIndex = 1;
   let targetLocators: string[] = [];
 
   if (Array.isArray(filterLocator)) {
@@ -337,7 +379,68 @@ export function paginateCountSheetItems(
     targetLocators = Object.keys(grouped);
   }
 
-  // First count total global pages
+  // 1. CYCLE COUNT CONTINUOUS MULTI-LOCATOR PAGE FILLING MODE
+  if (mixLocators) {
+    const allContinuousItems: InventoryItem[] = [];
+    targetLocators.forEach(loc => {
+      let locItems = (grouped[loc] || []).filter(isValidCountSheetItem);
+      if (sortField && sortField !== 'original') {
+        locItems = sortInventoryItemsForCountSheet(locItems, sortField, sortOrder || 'asc');
+      }
+      allContinuousItems.push(...locItems);
+    });
+
+    if (allContinuousItems.length === 0) {
+      pages.push({
+        pageNumber: 1,
+        totalPagesForLocator: 1,
+        globalPageIndex: 1,
+        totalGlobalPages: 1,
+        locator: targetLocators.length > 0 ? targetLocators[0] : 'ALL LOCATORS',
+        locators: targetLocators,
+        items: [],
+        startIndex: 0,
+        endIndex: 0,
+      });
+      return pages;
+    }
+
+    const safeRowsPerPage = Math.max(1, rowsPerPage);
+    const totalGlobalPages = Math.max(1, Math.ceil(allContinuousItems.length / safeRowsPerPage));
+
+    for (let p = 0; p < totalGlobalPages; p++) {
+      const start = p * safeRowsPerPage;
+      const end = Math.min(start + safeRowsPerPage, allContinuousItems.length);
+      const pageItems = allContinuousItems.slice(start, end);
+      const pageLocators = Array.from(
+        new Set(pageItems.map(it => String(it.locator || '').trim().toUpperCase() || 'UNASSIGNED'))
+      );
+
+      let pageLocatorLabel = pageLocators.join(', ');
+      if (pageLocators.length > 2) {
+        pageLocatorLabel = `${pageLocators[0]} → ${pageLocators[pageLocators.length - 1]} (${pageLocators.length} Locators)`;
+      } else if (pageLocators.length === 0) {
+        pageLocatorLabel = 'ALL';
+      }
+
+      pages.push({
+        pageNumber: p + 1,
+        totalPagesForLocator: totalGlobalPages,
+        globalPageIndex: p + 1,
+        totalGlobalPages,
+        locator: pageLocatorLabel,
+        locators: pageLocators,
+        items: pageItems,
+        startIndex: start,
+        endIndex: end,
+      });
+    }
+
+    return pages;
+  }
+
+  // 2. STANDARD PCOUNT W2W PAGE BREAK BY LOCATOR MODE
+  let globalPageIndex = 1;
   let totalGlobalPages = 0;
   targetLocators.forEach(loc => {
     const locItems = grouped[loc] || [];
@@ -362,6 +465,7 @@ export function paginateCountSheetItems(
         globalPageIndex: globalPageIndex++,
         totalGlobalPages,
         locator: loc,
+        locators: [loc],
         items: [],
         startIndex: 0,
         endIndex: 0,
@@ -380,6 +484,7 @@ export function paginateCountSheetItems(
         globalPageIndex: globalPageIndex++,
         totalGlobalPages,
         locator: loc,
+        locators: [loc],
         items: pageItems,
         startIndex: start,
         endIndex: end,
@@ -395,7 +500,8 @@ export function paginateCountSheetItems(
  */
 export function calculateCountSheetSummary(
   items: InventoryItem[],
-  rowsPerPage: number = 20
+  rowsPerPage: number = 20,
+  mixLocators: boolean = false
 ): CountSheetSummary {
   const selectedItems = items.filter(it => it.isSelected !== false);
   const grouped = groupItemsByLocator(selectedItems);
@@ -411,6 +517,10 @@ export function calculateCountSheetSummary(
     totalPages += pages;
     return { locator: loc, count, pages };
   });
+
+  if (mixLocators) {
+    totalPages = Math.max(1, Math.ceil(totalValidItems / Math.max(1, rowsPerPage)));
+  }
 
   return {
     totalItems: totalValidItems,
